@@ -1,4 +1,4 @@
-import '../domain/entities/ets_exam.dart';
+import '../../domain/entities/ets_exam.dart';
 
 class EtsModel extends EtsExam {
   EtsModel({
