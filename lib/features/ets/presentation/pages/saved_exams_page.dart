@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../domain/entities/ets_exam.dart';
 import '../providers/ets_provider.dart';
 import '../providers/auth_provider.dart';
@@ -14,12 +17,7 @@ class SavedExamsPage extends StatefulWidget {
 }
 
 class _SavedExamsPageState extends State<SavedExamsPage> {
-  // Configuración del calendario
-  DateTime _focusedDay = DateTime.utc(
-    2026,
-    6,
-    1,
-  ); // Centramos el calendario en Junio 2026
+  DateTime _focusedDay = DateTime.utc(2026, 6, 1);
   DateTime? _selectedDay;
   Map<DateTime, List<EtsExam>> _examenesPorDia = {};
 
@@ -37,18 +35,12 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
     ).currentEmail;
     if (email != null) {
       final etsProvider = Provider.of<EtsProvider>(context, listen: false);
-
-      // Aseguramos que los datos estén actualizados
       await etsProvider.loadSavedExams(email);
-
-      // Transformamos la lista a un Mapa ordenado por fechas
       _agruparExamenes(etsProvider.misExamenesGuardados);
     }
   }
 
-  // --- TRADUCTOR DE FECHAS DE TEXTO A DATETIME ---
   DateTime _parsearFecha(String fechaStr) {
-    // Ejemplo de entrada: '15-Junio-2026'
     final meses = {
       'enero': 1,
       'febrero': 2,
@@ -67,20 +59,17 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
     try {
       final partes = fechaStr.toLowerCase().split('-');
       int dia = int.parse(partes[0]);
-      int mes = meses[partes[1]] ?? 6; // Por defecto Junio
+      int mes = meses[partes[1]] ?? 6;
       int anio = partes.length == 3 ? int.parse(partes[2]) : 2026;
 
-      // Usamos UTC para que TableCalendar no tenga problemas de zonas horarias
       return DateTime.utc(anio, mes, dia);
     } catch (e) {
-      return DateTime.utc(2026, 6, 1); // Fecha de respaldo en caso de error
+      return DateTime.utc(2026, 6, 1);
     }
   }
 
-  // --- AGRUPAR EXÁMENES POR DÍA ---
   void _agruparExamenes(List<EtsExam> examenes) {
     Map<DateTime, List<EtsExam>> data = {};
-
     for (var exam in examenes) {
       DateTime fechaReal = _parsearFecha(exam.fecha);
       if (data[fechaReal] == null) {
@@ -88,20 +77,97 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
       }
       data[fechaReal]!.add(exam);
     }
-
     setState(() {
       _examenesPorDia = data;
     });
   }
 
-  // Obtener los exámenes de un día específico para pintarlos debajo del calendario
   List<EtsExam> _getExamenesDelDia(DateTime day) {
     return _examenesPorDia[day] ?? [];
   }
 
+  // --- LOGICA DE GENERACION DE PDF ---
+  Future<void> _generarYCompartirPDF(List<EtsExam> examenes) async {
+    if (examenes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay examenes para exportar')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Generando documento PDF...')));
+
+    final pdf = pw.Document();
+
+    // Ordenamos los examenes por fecha cronologica para el PDF
+    examenes.sort(
+      (a, b) => _parsearFecha(a.fecha).compareTo(_parsearFecha(b.fecha)),
+    );
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Header(
+                level: 0,
+                child: pw.Text(
+                  'Mi Calendario de ETS - ESCOM',
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Tabla dinamica con los datos
+              pw.TableHelper.fromTextArray(
+                context: context,
+                headers: ['Fecha', 'Turno', 'Materia', 'Salon'],
+                data: examenes
+                    .map((e) => [e.fecha, e.turno, e.materia, e.salon])
+                    .toList(),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.blue800,
+                ),
+                rowDecoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    bottom: pw.BorderSide(color: PdfColors.grey300),
+                  ),
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+                cellPadding: const pw.EdgeInsets.all(8),
+              ),
+
+              pw.SizedBox(height: 30),
+              pw.Text(
+                'Generado automaticamente desde Gestor de ETS',
+                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    // Abre el dialogo nativo de Android para guardar en Drive, Archivos o enviar por WhatsApp
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: 'Calendario_ETS_ESCOM.pdf',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Leemos los cambios del provider para re-agrupar si el usuario elimina un examen
     final etsProvider = Provider.of<EtsProvider>(context);
     _agruparExamenes(etsProvider.misExamenesGuardados);
 
@@ -109,17 +175,24 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
       appBar: AppBar(
         title: const Text('Mi Calendario de ETS'),
         backgroundColor: Colors.blueAccent,
+        actions: [
+          // --- BOTON DE EXPORTAR PDF ---
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Exportar a PDF',
+            onPressed: () =>
+                _generarYCompartirPDF(etsProvider.misExamenesGuardados),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // --- EL WIDGET DE CALENDARIO ---
           TableCalendar<EtsExam>(
             firstDay: DateTime.utc(2026, 1, 1),
             lastDay: DateTime.utc(2026, 12, 31),
             focusedDay: _focusedDay,
             selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            eventLoader:
-                _getExamenesDelDia, // Pinta los puntitos de los exámenes
+            eventLoader: _getExamenesDelDia,
             startingDayOfWeek: StartingDayOfWeek.monday,
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
@@ -133,29 +206,27 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
               markerDecoration: const BoxDecoration(
                 color: Colors.redAccent,
                 shape: BoxShape.circle,
-              ), // Puntito del examen
+              ),
             ),
             headerStyle: const HeaderStyle(
-              formatButtonVisible: false, // Ocultamos el botón de "2 weeks"
+              formatButtonVisible: false,
               titleCentered: true,
             ),
             onDaySelected: (selectedDay, focusedDay) {
               setState(() {
                 _selectedDay = selectedDay;
-                _focusedDay =
-                    focusedDay; // Actualiza el mes si toca un día del mes siguiente
+                _focusedDay = focusedDay;
               });
             },
           ),
 
           const Divider(thickness: 2),
 
-          // --- LA LISTA DE EXÁMENES DEL DÍA SELECCIONADO ---
           Expanded(
             child: _getExamenesDelDia(_selectedDay!).isEmpty
                 ? const Center(
                     child: Text(
-                      'No tienes exámenes agendados este día 🏖️',
+                      'No tienes examenes agendados este dia',
                       style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
                   )
@@ -179,7 +250,7 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text(
-                            '${exam.turno} | Salón: ${exam.salon}',
+                            '${exam.turno} | Salon: ${exam.salon}',
                           ),
                           trailing: const Icon(
                             Icons.arrow_forward_ios,

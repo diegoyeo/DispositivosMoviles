@@ -9,7 +9,9 @@ import 'features/ets/presentation/pages/login_page.dart';
 void main() {
   // 1. Inicializamos la "maquinaria" de la base de datos
   final localDataSource = EtsLocalDataSource();
-  final repository = EtsRepositoryImpl(localDataSource: localDataSource);
+
+  // 👇 AQUÍ ESTÁ EL ARREGLO (Sin etiquetas, solo la variable)
+  final repository = EtsRepositoryImpl(localDataSource);
 
   runApp(
     // 2. MultiProvider nos deja tener varios "Cerebros" funcionando al mismo tiempo
@@ -18,6 +20,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => EtsProvider(repository)),
         ChangeNotifierProvider(create: (_) => AuthProvider(repository)),
       ],
+      // Asegúrate de que aquí abajo siga llamando a tu MyApp principal
       child: const MyApp(),
     ),
   );

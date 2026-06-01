@@ -6,11 +6,33 @@ class EtsProvider extends ChangeNotifier {
   final EtsRepositoryImpl repository;
 
   List<EtsExam> misExamenesGuardados = [];
-
+  List<EtsExam> get catalogoCompleto => _todosLosExamenes;
   // --- ACTUALIZA TU MÉTODO GUARDAR ---
   Future<void> guardarExamInterno(String correo, String materia) async {
     await repository.saveExamToUser(correo, materia);
     await loadSavedExams(correo);
+  }
+
+  // Agregar un examen nuevo y refrescar la lista
+  Future<void> agregarNuevoExamen(
+    String materia,
+    String carrera,
+    int semestre,
+    String fecha,
+    String turno,
+    String salon,
+    String profesor,
+  ) async {
+    await repository.addExam(
+      materia,
+      carrera,
+      semestre,
+      fecha,
+      turno,
+      salon,
+      profesor,
+    );
+    await loadExams(); // Recargamos el catálogo completo desde la DB
   }
 
   // Eliminar el examen y recargar la lista interna
@@ -58,8 +80,38 @@ class EtsProvider extends ChangeNotifier {
     return salida.toLowerCase();
   }
 
+  // Eliminar examen del catálogo general y actualizar la vista del Admin
+  Future<void> borrarExamenDelCatalogo(String materia) async {
+    await repository.deleteExam(materia);
+    await loadExams(); // Esto recarga el catálogo completo y actualiza estadísticas
+  }
+
+  // Actualizar un examen y recargar la lista del admin
+  Future<void> actualizarExamen(
+    String oldMateria,
+    String materia,
+    String carrera,
+    int semestre,
+    String fecha,
+    String turno,
+    String salon,
+    String profesor,
+  ) async {
+    await repository.updateExam(
+      oldMateria,
+      materia,
+      carrera,
+      semestre,
+      fecha,
+      turno,
+      salon,
+      profesor,
+    );
+    await loadExams(); // Recarga el catálogo completo de SQLite
+  }
+
   Future<void> loadExams() async {
-    _todosLosExamenes = await repository.getAllExams();
+    _todosLosExamenes = await repository.getExams();
 
     // Ordenar ignorando acentos
     _todosLosExamenes.sort(

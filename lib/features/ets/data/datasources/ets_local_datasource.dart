@@ -402,4 +402,86 @@ class EtsLocalDataSource {
       );
     }
   }
+
+  // Insertar un nuevo examen en el catálogo general
+  Future<void> addExam(
+    String materia,
+    String carrera,
+    int semestre,
+    String fecha,
+    String turno,
+    String salon,
+    String profesor,
+  ) async {
+    final db = await database;
+    await db.insert('exams', {
+      'materia': materia,
+      'carrera': carrera,
+      'semestre': semestre,
+      'fecha': fecha,
+      'turno': turno,
+      'salon': salon,
+      'profesor': profesor,
+    });
+  }
+
+  // Eliminar un examen del catálogo general de forma definitiva
+  Future<void> deleteExam(String materia) async {
+    final db = await database;
+    await db.delete('exams', where: 'materia = ?', whereArgs: [materia]);
+  }
+
+  // --- MÓDULO DE AUTENTICACIÓN (REGISTRO REAL) ---
+  Future<bool> register(
+    String nombre,
+    String apellido,
+    String correo,
+    String password,
+  ) async {
+    try {
+      final db = await database;
+
+      // Sanitizamos los datos antes de guardarlos
+      final emailLimpio = correo.trim().toLowerCase();
+
+      await db.insert('users', {
+        'nombre': nombre,
+        'apellido': apellido,
+        'correo': emailLimpio,
+        'password': password.trim(),
+      });
+
+      return true; // Se guardó correctamente en SQLite
+    } catch (e) {
+      return false; // Falló (probablemente el correo ya estaba registrado)
+    }
+  }
+
+  // Actualizar los datos de un examen existente
+  Future<void> updateExam(
+    String oldMateria,
+    String materia,
+    String carrera,
+    int semestre,
+    String fecha,
+    String turno,
+    String salon,
+    String profesor,
+  ) async {
+    final db = await database;
+    await db.update(
+      'exams',
+      {
+        'materia': materia,
+        'carrera': carrera,
+        'semestre': semestre,
+        'fecha': fecha,
+        'turno': turno,
+        'salon': salon,
+        'profesor': profesor,
+      },
+      where: 'materia = ?',
+      whereArgs: [oldMateria],
+    );
+  }
 }

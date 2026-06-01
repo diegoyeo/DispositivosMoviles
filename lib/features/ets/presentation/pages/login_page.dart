@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/ets_provider.dart'; // Importante: Necesitamos esto para limpiar los filtros
+import '../providers/ets_provider.dart';
 import 'ets_home_page.dart';
 import 'register_page.dart';
+import 'admin_dashboard_page.dart'; // <--- Aquí está el famoso import
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -24,6 +25,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // Leemos el provider
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final exito = await auth.login(
       _emailController.text,
@@ -33,23 +35,27 @@ class _LoginPageState extends State<LoginPage> {
     if (exito) {
       if (!mounted) return;
 
+      // Limpiamos los filtros antes de entrar para que no se queden pegados
+      Provider.of<EtsProvider>(context, listen: false).limpiarFiltros();
+
+      // --- LOGICA DE REDIRECCIÓN (ADMIN VS ALUMNO) ---
       if (auth.currentRole == 'admin') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bienvenido, Administrador')),
+          const SnackBar(content: Text('Autenticado como Administrador')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminDashboardPage()),
         );
       } else {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Bienvenido, Alumno')));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const EtsHomePage()),
+        );
       }
-
-      // 👇 LIMPIAMOS LOS FILTROS ANTES DE ENTRAR (ARREGLO BUG 2)
-      Provider.of<EtsProvider>(context, listen: false).limpiarFiltros();
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const EtsHomePage()),
-      );
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +123,7 @@ class _LoginPageState extends State<LoginPage> {
 
             TextButton(
               onPressed: () {
-                // 👇 LIMPIAMOS LOS FILTROS ANTES DE ENTRAR COMO INVITADO
+                // Limpiamos también si entra como invitado
                 Provider.of<EtsProvider>(
                   context,
                   listen: false,
