@@ -1,13 +1,15 @@
 class EtsExam {
+  final int? id;
   final String materia;
   final String fecha;
   final String turno;
   final String salon;
   final String profesor;
-  final String carrera; // Para el buscador inteligente
-  final int semestre;   // Para el buscador inteligente
+  final String carrera;
+  final int semestre;
 
   EtsExam({
+    this.id,
     required this.materia,
     required this.fecha,
     required this.turno,

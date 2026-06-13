@@ -1,144 +1,493 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../../../core/services/notification_service.dart';
 import '../../domain/entities/ets_exam.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ets_provider.dart';
 import 'login_page.dart';
 
-class ExamDetailPage extends StatelessWidget {
+class ExamDetailPage extends StatefulWidget {
+  const ExamDetailPage({super.key, required this.exam});
   final EtsExam exam;
 
-  const ExamDetailPage({super.key, required this.exam});
+  @override
+  State<ExamDetailPage> createState() => _ExamDetailPageState();
+}
+
+class _ExamDetailPageState extends State<ExamDetailPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _enterCtrl;
+  late final List<Animation<double>> _rowAnims;
+  late final Animation<double> _animButton;
 
   @override
-  Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
-    final etsProv = Provider.of<EtsProvider>(
-      context,
-    ); // Quitamos el listen:false para que reaccione al cambio de botón
-    final esInvitado = auth.currentRole == null;
+  void initState() {
+    super.initState();
+    _enterCtrl = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..forward();
 
-    // Verificamos si este examen en específico ya está en la lista de guardados
-    final yaEstaGuardado = etsProv.estaGuardado(exam.materia);
+    // 7 filas escalonadas
+    _rowAnims = List.generate(7, (i) {
+      final start = i * 0.08;
+      return CurvedAnimation(
+        parent: _enterCtrl,
+        curve: Interval(start, (start + 0.40).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic),
+      );
+    });
+    _animButton = CurvedAnimation(
+      parent: _enterCtrl,
+      curve: const Interval(0.60, 1.00, curve: Curves.easeOutBack),
+    );
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(exam.materia),
-        backgroundColor: Colors.blueAccent,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(1),
-                    1: FlexColumnWidth(2),
-                  },
-                  children: [
-                    _buildTableRow('Materia:', exam.materia),
-                    _buildTableRow('Carrera:', exam.carrera),
-                    _buildTableRow('Semestre:', exam.semestre.toString()),
-                    _buildTableRow('Fecha:', exam.fecha),
-                    _buildTableRow('Turno:', exam.turno),
-                    _buildTableRow('Salón:', exam.salon),
-                    _buildTableRow('Profesor:', exam.profesor),
-                  ],
-                ),
+  @override
+  void dispose() {
+    _enterCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Parser de fecha (formato "15-junio-2026") ──────────────────────────────
+
+  static const _meses = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+    'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+    'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
+  };
+
+  DateTime _parseFecha(String s) {
+    try {
+      final p = s.toLowerCase().split('-');
+      return DateTime(
+        p.length == 3 ? int.parse(p[2]) : 2026,
+        _meses[p[1]] ?? 6,
+        int.parse(p[0]),
+      );
+    } catch (_) {
+      return DateTime(2026, 6, 1);
+    }
+  }
+
+  // ── Helpers de UI ─────────────────────────────────────────────────────────
+
+  Widget _slideRow(Animation<double> anim, Widget child) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-0.15, 0),
+            end: Offset.zero,
+          ).animate(anim),
+          child: child,
+        ),
+      );
+
+  Widget _detailRow({
+    required String label,
+    required String value,
+    required IconData icon,
+    required ColorScheme cs,
+    required TextTheme tt,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: cs.primary),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.55),
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 30),
-
-            // --- LÓGICA DINÁMICA DE BOTONES ---
-            if (esInvitado)
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                  );
-                },
-                icon: const Icon(Icons.login),
-                label: const Text('Iniciar sesión para guardar'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Colors.grey.shade300,
-                  foregroundColor: Colors.black87,
-                ),
-              )
-            else if (yaEstaGuardado)
-              // BOTÓN PARA ELIMINAR
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await etsProv.eliminarExamInterno(
-                    auth.currentEmail!,
-                    exam.materia,
-                  );
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Eliminado de tu calendario interno'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.bookmark_remove),
-                label: const Text('Quitar de mi calendario'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                ),
-              )
-            else
-              // BOTÓN PARA GUARDAR
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await etsProv.guardarExamInterno(
-                    auth.currentEmail!,
-                    exam.materia,
-                  );
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Guardado en tu calendario interno con éxito',
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.bookmark),
-                label: const Text('Guardar en mi calendario'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: tt.bodyMedium?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w500,
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  TableRow _buildTableRow(String label, String value) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+  Widget _turnoRow(String turno, ColorScheme cs, TextTheme tt) {
+    final isMatutino = turno.toLowerCase().contains('matutino');
+    final chipBg =
+        isMatutino ? cs.secondaryContainer : cs.tertiaryContainer;
+    final chipFg =
+        isMatutino ? cs.onSecondaryContainer : cs.onTertiaryContainer;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(Icons.access_time_rounded, size: 18, color: cs.primary),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 88,
+            child: Text(
+              'Turno',
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.55),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Chip(
+            label: Text(
+              turno,
+              style: tt.labelMedium?.copyWith(
+                color: chipFg,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            avatar: Icon(
+              isMatutino ? Icons.wb_sunny_rounded : Icons.nights_stay_rounded,
+              size: 14,
+              color: chipFg,
+            ),
+            backgroundColor: chipBg,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Lógica de negocio INTACTA ──────────────────────────────────────────────
+
+  Widget _buildActionButton(
+    bool esInvitado,
+    bool yaEstaGuardado,
+    EtsProvider etsProv,
+    AuthProvider auth,
+    ColorScheme cs,
+  ) {
+    if (esInvitado) {
+      return _ActionButton(
+        icon: Icons.login_rounded,
+        label: 'Iniciar sesión para guardar',
+        gradient: false,
+        onPressed: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        ),
+      );
+    }
+
+    if (yaEstaGuardado) {
+      return _ActionButton(
+        icon: Icons.bookmark_remove_rounded,
+        label: 'Quitar de mi calendario',
+        isDestructive: true,
+        onPressed: () async {
+          try {
+            await etsProv.eliminarExamInterno(
+              auth.currentEmail!,
+              widget.exam.materia,
+            );
+            await NotificationService()
+                .cancelNotification(widget.exam.materia.hashCode);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Eliminado de tu calendario interno'),
+              ),
+            );
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+      );
+    }
+
+    return _ActionButton(
+      icon: Icons.bookmark_add_rounded,
+      label: 'Guardar en mi calendario',
+      gradient: true,
+      onPressed: () async {
+        try {
+          await etsProv.guardarExamInterno(
+            auth.currentEmail!,
+            widget.exam.materia,
+          );
+          await NotificationService().scheduleExamNotification(
+            id: widget.exam.materia.hashCode,
+            examName: widget.exam.materia,
+            examDate: _parseFecha(widget.exam.fecha),
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Examen guardado. Te recordaremos 1 día antes'),
+            ),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final etsProv = Provider.of<EtsProvider>(context);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final esInvitado = auth.currentRole == null;
+    final yaEstaGuardado = etsProv.estaGuardado(widget.exam.materia);
+
+    final rows = [
+      (label: 'Materia', value: widget.exam.materia, icon: Icons.menu_book_rounded),
+      (label: 'Carrera', value: widget.exam.carrera, icon: Icons.school_rounded),
+      (label: 'Semestre', value: widget.exam.semestre.toString(), icon: Icons.layers_rounded),
+      (label: 'Fecha', value: widget.exam.fecha, icon: Icons.calendar_today_rounded),
+      (label: 'Salón', value: widget.exam.salon, icon: Icons.room_rounded),
+      (label: 'Profesor', value: widget.exam.profesor, icon: Icons.person_outline_rounded),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.exam.materia,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [cs.primaryContainer, cs.surface],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(value, style: const TextStyle(fontSize: 16)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Tarjeta glassmorphism ──────────────────────────────────
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    decoration: BoxDecoration(
+                      color: cs.surface.withValues(alpha: 0.60),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: cs.primary.withValues(alpha: 0.14),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.primary.withValues(alpha: 0.12),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // 6 filas normales con animación escalonada
+                        for (var i = 0; i < rows.length; i++) ...[
+                          _slideRow(
+                            _rowAnims[i],
+                            _detailRow(
+                              label: rows[i].label,
+                              value: rows[i].value,
+                              icon: rows[i].icon,
+                              cs: cs,
+                              tt: tt,
+                            ),
+                          ),
+                          if (i < rows.length - 1)
+                            Divider(
+                              height: 1,
+                              color: cs.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                        ],
+                        // Fila de turno con chip (índice 6)
+                        Divider(
+                          height: 1,
+                          color: cs.outlineVariant.withValues(alpha: 0.4),
+                        ),
+                        _slideRow(
+                          _rowAnims[6],
+                          _turnoRow(widget.exam.turno, cs, tt),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Botón de acción con animación de entrada ───────────────
+              FadeTransition(
+                opacity: _animButton,
+                child: ScaleTransition(
+                  scale: _animButton,
+                  child: _buildActionButton(
+                    esInvitado,
+                    yaEstaGuardado,
+                    etsProv,
+                    auth,
+                    cs,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+// ─── Botón de acción con ícono animado (bookmark fill/unfill) ─────────────────
+
+class _ActionButton extends StatefulWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.gradient = false,
+    this.isDestructive = false,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool gradient;
+  final bool isDestructive;
+
+  @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    BoxDecoration decoration;
+    Color fgColor;
+
+    if (widget.isDestructive) {
+      decoration = BoxDecoration(
+        color: cs.errorContainer,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: cs.error.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      );
+      fgColor = cs.onErrorContainer;
+    } else if (widget.gradient) {
+      decoration = BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary, cs.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.32),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      );
+      fgColor = cs.onPrimary;
+    } else {
+      decoration = BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+      );
+      fgColor = cs.onSurface.withValues(alpha: 0.7);
+    }
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onPressed();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        child: Container(
+          width: double.infinity,
+          height: 52,
+          decoration: decoration,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  widget.icon,
+                  key: ValueKey(widget.icon),
+                  color: fgColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: fgColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

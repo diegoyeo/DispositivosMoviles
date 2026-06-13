@@ -1,26 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'core/providers/preferences_provider.dart';
+import 'core/providers/theme_provider.dart';
+import 'core/services/notification_service.dart';
 import 'features/ets/data/datasources/ets_local_datasource.dart';
 import 'features/ets/data/repositories/ets_repository_impl.dart';
 import 'features/ets/presentation/providers/ets_provider.dart';
 import 'features/ets/presentation/providers/auth_provider.dart';
-import 'features/ets/presentation/pages/login_page.dart';
+import 'features/catalogos/providers/catalogos_provider.dart';
+import 'features/onboarding/data/repositories/onboarding_repository_impl.dart';
+import 'features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'splash_screen.dart';
 
-void main() {
-  // 1. Inicializamos la "maquinaria" de la base de datos
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await NotificationService().initialize();
+
+  final prefs = await SharedPreferences.getInstance();
+  final onboardingRepo = OnboardingRepositoryImpl();
   final localDataSource = EtsLocalDataSource();
-
-  // 👇 AQUÍ ESTÁ EL ARREGLO (Sin etiquetas, solo la variable)
   final repository = EtsRepositoryImpl(localDataSource);
 
   runApp(
-    // 2. MultiProvider nos deja tener varios "Cerebros" funcionando al mismo tiempo
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => EtsProvider(repository)),
         ChangeNotifierProvider(create: (_) => AuthProvider(repository)),
+        ChangeNotifierProvider(
+          create: (_) => OnboardingProvider(onboardingRepo),
+        ),
+        ChangeNotifierProvider(create: (_) => CatalogosProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
+        ChangeNotifierProvider(create: (_) => PreferencesProvider(prefs)),
       ],
-      // Asegúrate de que aquí abajo siga llamando a tu MyApp principal
       child: const MyApp(),
     ),
   );
@@ -31,15 +46,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'App de ETS ESCOM',
+      title: 'BRUZZY — ETS ESCOM',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
+        useMaterial3: true,
       ),
-      // 3. La pantalla inicial ahora es el Login, ya no el Home directo
-      home: const LoginPage(),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blueAccent,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: themeProvider.currentTheme,
+      home: const SplashScreen(),
     );
   }
 }

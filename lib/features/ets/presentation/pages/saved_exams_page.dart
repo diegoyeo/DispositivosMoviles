@@ -7,7 +7,10 @@ import 'package:printing/printing.dart';
 import '../../domain/entities/ets_exam.dart';
 import '../providers/ets_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/app_drawers.dart';
 import 'exam_detail_page.dart';
+import 'login_page.dart';
+import 'settings_page.dart';
 
 class SavedExamsPage extends StatefulWidget {
   const SavedExamsPage({super.key});
@@ -16,16 +19,44 @@ class SavedExamsPage extends StatefulWidget {
   State<SavedExamsPage> createState() => _SavedExamsPageState();
 }
 
-class _SavedExamsPageState extends State<SavedExamsPage> {
+class _SavedExamsPageState extends State<SavedExamsPage>
+    with TickerProviderStateMixin {
   DateTime _focusedDay = DateTime.utc(2026, 6, 1);
   DateTime? _selectedDay;
   Map<DateTime, List<EtsExam>> _examenesPorDia = {};
+
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _slideCtrl;
+  late final Animation<double> _pulse;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
     _cargarExamenes();
+
+    // Pulso suave en botón PDF
+    _pulseCtrl = AnimationController(
+      duration: const Duration(milliseconds: 1400),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulse = Tween<double>(begin: 1.0, end: 1.14).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+
+    // Slide de lista al cambiar día
+    _slideCtrl = AnimationController(
+      duration: const Duration(milliseconds: 450),
+      vsync: this,
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _slideCtrl.dispose();
+    super.dispose();
   }
 
   void _cargarExamenes() async {
@@ -86,7 +117,8 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
     return _examenesPorDia[day] ?? [];
   }
 
-  // --- LOGICA DE GENERACION DE PDF ---
+  // ── Generación de PDF INTACTA ──────────────────────────────────────────────
+
   Future<void> _generarYCompartirPDF(List<EtsExam> examenes) async {
     if (examenes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,13 +127,12 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Generando documento PDF...')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Generando documento PDF...')),
+    );
 
     final pdf = pw.Document();
 
-    // Ordenamos los examenes por fecha cronologica para el PDF
     examenes.sort(
       (a, b) => _parsearFecha(a.fecha).compareTo(_parsearFecha(b.fecha)),
     );
@@ -124,8 +155,6 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
                 ),
               ),
               pw.SizedBox(height: 20),
-
-              // Tabla dinamica con los datos
               pw.TableHelper.fromTextArray(
                 context: context,
                 headers: ['Fecha', 'Turno', 'Materia', 'Salon'],
@@ -147,7 +176,6 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
                 cellAlignment: pw.Alignment.centerLeft,
                 cellPadding: const pw.EdgeInsets.all(8),
               ),
-
               pw.SizedBox(height: 30),
               pw.Text(
                 'Generado automaticamente desde Gestor de ETS',
@@ -159,118 +187,326 @@ class _SavedExamsPageState extends State<SavedExamsPage> {
       ),
     );
 
-    // Abre el dialogo nativo de Android para guardar en Drive, Archivos o enviar por WhatsApp
     await Printing.sharePdf(
       bytes: await pdf.save(),
       filename: 'Calendario_ETS_ESCOM.pdf',
     );
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final etsProvider = Provider.of<EtsProvider>(context);
     _agruparExamenes(etsProvider.misExamenesGuardados);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final examenesHoy = _getExamenesDelDia(_selectedDay!);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Calendario de ETS'),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
         actions: [
-          // --- BOTON DE EXPORTAR PDF ---
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Exportar a PDF',
-            onPressed: () =>
-                _generarYCompartirPDF(etsProvider.misExamenesGuardados),
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (_, child) =>
+                Transform.scale(scale: _pulse.value, child: child),
+            child: IconButton(
+              icon: const Icon(Icons.picture_as_pdf),
+              tooltip: 'Exportar a PDF',
+              onPressed: () =>
+                  _generarYCompartirPDF(etsProvider.misExamenesGuardados),
+            ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          TableCalendar<EtsExam>(
-            firstDay: DateTime.utc(2026, 1, 1),
-            lastDay: DateTime.utc(2026, 12, 31),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            eventLoader: _getExamenesDelDia,
-            startingDayOfWeek: StartingDayOfWeek.monday,
-            calendarStyle: CalendarStyle(
-              todayDecoration: BoxDecoration(
-                color: Colors.blue.shade200,
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: const BoxDecoration(
-                color: Colors.blueAccent,
-                shape: BoxShape.circle,
-              ),
-              markerDecoration: const BoxDecoration(
-                color: Colors.redAccent,
-                shape: BoxShape.circle,
-              ),
-            ),
-            headerStyle: const HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-            ),
-            onDaySelected: (selectedDay, focusedDay) {
-              setState(() {
-                _selectedDay = selectedDay;
-                _focusedDay = focusedDay;
-              });
+
+      drawer: Builder(
+        builder: (ctx) {
+          final auth = Provider.of<AuthProvider>(ctx, listen: false);
+          return AlumnoDrawer(
+            onNavigateHome: () {
+              Navigator.pop(ctx);
+              if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
             },
+            onNavigateExams: () {
+              Navigator.pop(ctx);
+              if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+            },
+            onNavigateCalendar: () => Navigator.pop(ctx),
+            onNavigateSettings: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                ctx,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
+            },
+            onLogout: () {
+              auth.logout();
+              Navigator.pushReplacement(
+                ctx,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+              );
+            },
+          );
+        },
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [cs.primaryContainer, cs.surface],
           ),
+        ),
+        child: Column(
+          children: [
+            // ── Calendario ────────────────────────────────────────────────
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.primary.withValues(alpha: 0.10),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TableCalendar<EtsExam>(
+                firstDay: DateTime.utc(2026, 1, 1),
+                lastDay: DateTime.utc(2026, 12, 31),
+                focusedDay: _focusedDay,
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                eventLoader: _getExamenesDelDia,
+                startingDayOfWeek: StartingDayOfWeek.monday,
+                calendarStyle: CalendarStyle(
+                  todayDecoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  selectedDecoration: BoxDecoration(
+                    color: cs.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  markerDecoration: BoxDecoration(
+                    color: cs.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  todayTextStyle: TextStyle(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  selectedTextStyle: TextStyle(
+                    color: cs.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  weekendTextStyle: TextStyle(
+                    color: cs.error.withValues(alpha: 0.7),
+                  ),
+                ),
+                headerStyle: HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                  titleTextStyle: TextStyle(
+                    color: cs.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
+                  leftChevronIcon: Icon(
+                    Icons.chevron_left_rounded,
+                    color: cs.primary,
+                  ),
+                  rightChevronIcon: Icon(
+                    Icons.chevron_right_rounded,
+                    color: cs.primary,
+                  ),
+                ),
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _focusedDay = focusedDay;
+                  });
+                  _slideCtrl
+                    ..reset()
+                    ..forward();
+                },
+              ),
+            ),
 
-          const Divider(thickness: 2),
+            Divider(
+              height: 20,
+              thickness: 1,
+              indent: 16,
+              endIndent: 16,
+              color: cs.outlineVariant,
+            ),
 
-          Expanded(
-            child: _getExamenesDelDia(_selectedDay!).isEmpty
-                ? const Center(
-                    child: Text(
-                      'No tienes examenes agendados este dia',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _getExamenesDelDia(_selectedDay!).length,
-                    itemBuilder: (context, index) {
-                      final exam = _getExamenesDelDia(_selectedDay!)[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 8,
-                        ),
-                        elevation: 2,
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.bookmark_added,
-                            color: Colors.green,
-                          ),
-                          title: Text(
-                            exam.materia,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            '${exam.turno} | Salon: ${exam.salon}',
-                          ),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ExamDetailPage(exam: exam),
+            // ── Lista de exámenes del día ──────────────────────────────────
+            Expanded(
+              child: examenesHoy.isEmpty
+                  ? _buildEmptyState(cs, tt)
+                  : AnimatedBuilder(
+                      animation: _slideCtrl,
+                      builder: (_, _) {
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                          itemCount: examenesHoy.length,
+                          itemBuilder: (context, index) {
+                            final exam = examenesHoy[index];
+                            final start =
+                                (index / (examenesHoy.length + 1))
+                                    .clamp(0.0, 0.70);
+                            final anim = CurvedAnimation(
+                              parent: _slideCtrl,
+                              curve: Interval(
+                                start,
+                                (start + 0.55).clamp(0.0, 1.0),
+                                curve: Curves.easeOutCubic,
+                              ),
+                            );
+                            return FadeTransition(
+                              opacity: anim,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.3),
+                                  end: Offset.zero,
+                                ).animate(anim),
+                                child: _CalendarExamCard(
+                                  exam: exam,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          ExamDetailPage(exam: exam),
+                                    ),
+                                  ),
+                                ),
                               ),
                             );
                           },
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme cs, TextTheme tt) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.event_available_rounded,
+            size: 64,
+            color: cs.onSurface.withValues(alpha: 0.18),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sin exámenes este día',
+            style: tt.titleMedium?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.4),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Guarda exámenes desde la lista\npara verlos en tu calendario',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Tarjeta de examen en el calendario ──────────────────────────────────────
+
+class _CalendarExamCard extends StatelessWidget {
+  const _CalendarExamCard({required this.exam, required this.onTap});
+  final EtsExam exam;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      color: cs.surfaceContainerLowest,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.bookmark_added_rounded,
+                  color: cs.onPrimaryContainer,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exam.materia,
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${exam.turno} · Salón ${exam.salon}',
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: cs.onSurface.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
