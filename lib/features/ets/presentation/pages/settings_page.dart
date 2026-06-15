@@ -4,8 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../core/providers/preferences_provider.dart';
 import '../../../../../core/providers/theme_provider.dart';
+import '../../../../../core/services/biometric_service.dart';
 import '../../../../../core/services/notification_service.dart';
 import '../providers/auth_provider.dart';
+
+// Estado de los botones animados dentro de los diálogos
+enum _SaveState { idle, saving, success }
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -23,9 +27,11 @@ class _SettingsPageState extends State<SettingsPage>
   bool _recordatorios = false;
   String _anticipacion = '1 día antes';
 
-  // Switches admin locales
   bool _alertasNuevos = true;
   bool _recordatoriosAdmin = true;
+
+  bool _bioAvailable = false;
+  bool _bioEnabled = false;
 
   @override
   void initState() {
@@ -41,6 +47,18 @@ class _SettingsPageState extends State<SettingsPage>
           _recordatorios = prefs.getBool(_kNotifKey) ?? false;
         });
       }
+    });
+
+    _initBiometric();
+  }
+
+  Future<void> _initBiometric() async {
+    final available = await BiometricService.isAvailable();
+    final creds = available ? await BiometricService.getCredentials() : null;
+    if (!mounted) return;
+    setState(() {
+      _bioAvailable = available;
+      _bioEnabled = creds != null;
     });
   }
 
@@ -70,7 +88,7 @@ class _SettingsPageState extends State<SettingsPage>
         ),
       );
 
-  // ── Componentes de sección ───────────────────────────────────────────────
+  // ── Componentes reutilizables ────────────────────────────────────────────
 
   Widget _sectionHeader(String title, ColorScheme cs, TextTheme tt) {
     return Padding(
@@ -121,6 +139,128 @@ class _SettingsPageState extends State<SettingsPage>
   Widget _divider(ColorScheme cs) =>
       Divider(height: 1, indent: 56, color: cs.outlineVariant);
 
+  // ── Helpers de navegación / snackbar ─────────────────────────────────────
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showFloatingSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+  }
+
+  // Transición compartida para todos los diálogos animados
+  Widget _dialogTransition(
+    BuildContext ctx,
+    Animation<double> anim,
+    Animation<double> _,
+    Widget child,
+  ) =>
+      SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+            .animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: FadeTransition(opacity: anim, child: child),
+      );
+
+  // ── Diálogo cambiar contraseña (animado) ──────────────────────────────────
+
+  Future<void> _showChangePasswordDialog(BuildContext ctx) async {
+    await showGeneralDialog<void>(
+      context: ctx,
+      barrierDismissible: true,
+      barrierLabel: 'Cambiar contraseña',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: _dialogTransition,
+      pageBuilder: (context, _, _) => const _ChangePasswordDialog(),
+    );
+    // Refrescar estado de huella por si la contraseña fue cambiada
+    if (!mounted) return;
+    final creds = await BiometricService.getCredentials();
+    if (!mounted) return;
+    setState(() => _bioEnabled = creds != null);
+  }
+
+  // ── Toggle biometría ──────────────────────────────────────────────────────
+
+  Future<void> _toggleBiometric(bool enable) async {
+    if (enable) {
+      final authed = await BiometricService.authenticate();
+      if (!mounted) return;
+      if (!authed) {
+        _showFloatingSnackBar('Autenticación fallida. Intenta de nuevo');
+        return;
+      }
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.currentEmail == null) return;
+      final confirmed =
+          await _showBioConfirmDialog(context, auth.currentEmail!);
+      if (!mounted) return;
+      if (confirmed) setState(() => _bioEnabled = true);
+    } else {
+      final confirmed = await _showBioDisableDialog(context);
+      if (!mounted) return;
+      if (confirmed) {
+        await BiometricService.clearCredentials();
+        if (!mounted) return;
+        setState(() => _bioEnabled = false);
+        _showFloatingSnackBar('Huella desactivada');
+      }
+    }
+  }
+
+  Future<bool> _showBioConfirmDialog(BuildContext ctx, String email) async {
+    final result = await showGeneralDialog<bool>(
+      context: ctx,
+      barrierDismissible: true,
+      barrierLabel: 'Confirmar contraseña',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: _dialogTransition,
+      pageBuilder: (context, _, _) => _BioConfirmDialog(email: email),
+    );
+    return result == true;
+  }
+
+  Future<bool> _showBioDisableDialog(BuildContext ctx) async {
+    final result = await showGeneralDialog<bool>(
+      context: ctx,
+      barrierDismissible: true,
+      barrierLabel: 'Desactivar huella',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: _dialogTransition,
+      pageBuilder: (context, _, _) => AlertDialog(
+        title: const Text('Desactivar huella'),
+        content: const Text(
+          '¿Deseas desactivar el inicio de sesión con huella digital?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Desactivar'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  // ── Notificaciones ────────────────────────────────────────────────────────
+
   Future<void> _toggleNotifications(bool enable) async {
     if (enable) {
       final granted = await NotificationService().requestPermissions();
@@ -141,98 +281,6 @@ class _SettingsPageState extends State<SettingsPage>
     }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _showChangePasswordDialog(BuildContext context) async {
-    final currentCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Cambiar contraseña'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: currentCtrl,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Contraseña actual'),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Campo requerido' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: newCtrl,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Nueva contraseña'),
-                  validator: (v) => (v == null || v.length < 6)
-                      ? 'Mínimo 6 caracteres'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: confirmCtrl,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirmar contraseña'),
-                  validator: (v) => v != newCtrl.text
-                      ? 'Las contraseñas no coinciden'
-                      : null,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                Navigator.of(ctx).pop();
-                try {
-                  final auth =
-                      Provider.of<AuthProvider>(context, listen: false);
-                  await auth.changePassword(
-                    currentPassword: currentCtrl.text,
-                    newPassword: newCtrl.text,
-                  );
-                  if (mounted) {
-                    _showSnackBar('Contraseña actualizada correctamente');
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    _showSnackBar(
-                      e.toString().replaceFirst('Exception: ', ''),
-                    );
-                  }
-                }
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    currentCtrl.dispose();
-    newCtrl.dispose();
-    confirmCtrl.dispose();
-  }
-
   // ── Versión Alumno ────────────────────────────────────────────────────────
 
   Widget _buildAlumno(BuildContext context) {
@@ -246,8 +294,7 @@ class _SettingsPageState extends State<SettingsPage>
     final apellido = auth.currentApellido ?? '';
     final nombreCompleto = '$nombre $apellido'.trim();
     final nombreCap = nombreCompleto.isNotEmpty ? nombreCompleto : 'Alumno';
-    final initial =
-        nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
+    final initial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
     final email = auth.currentEmail ?? '';
 
     var idx = 0;
@@ -272,7 +319,8 @@ class _SettingsPageState extends State<SettingsPage>
             _animated(
               idx++,
               Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -318,15 +366,39 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               ),
             ),
+            // Cambiar contraseña con escala al presionar
             _animated(
               idx++,
-              _arrowTile(
-                icon: Icons.lock_outline_rounded,
-                label: 'Cambiar contraseña',
-                cs: cs,
+              _ScaleWrapper(
                 onTap: () => _showChangePasswordDialog(context),
+                child: _arrowTile(
+                  icon: Icons.lock_outline_rounded,
+                  label: 'Cambiar contraseña',
+                  cs: cs,
+                ),
               ),
             ),
+            // Huella digital — solo visible si el dispositivo la soporta
+            if (_bioAvailable) ...[
+              _divider(cs),
+              _animated(
+                idx++,
+                ListTile(
+                  leading: Icon(Icons.fingerprint, color: cs.primary),
+                  title: const Text('Inicio de sesión con huella'),
+                  subtitle: Text(
+                    _bioEnabled ? 'Activado' : 'Desactivado',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  trailing: Switch(
+                    value: _bioEnabled,
+                    onChanged: _toggleBiometric,
+                  ),
+                ),
+              ),
+            ],
 
             // ── Notificaciones ───────────────────────────────────────────
             _animated(idx++, _sectionHeader('Notificaciones', cs, tt)),
@@ -336,9 +408,7 @@ class _SettingsPageState extends State<SettingsPage>
                 icon: Icons.notifications_outlined,
                 label: 'Activar recordatorios de ETS',
                 value: _recordatorios,
-                onChanged: (v) {
-                  _toggleNotifications(v);
-                },
+                onChanged: _toggleNotifications,
                 cs: cs,
               ),
             ),
@@ -368,6 +438,7 @@ class _SettingsPageState extends State<SettingsPage>
               ),
             ),
             _divider(cs),
+            // Notificaciones por correo — deshabilitado, próximamente
             _animated(
               idx++,
               Opacity(
@@ -375,12 +446,18 @@ class _SettingsPageState extends State<SettingsPage>
                 child: ListTile(
                   leading: Icon(Icons.email_outlined, color: cs.primary),
                   title: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Notificaciones por correo'),
+                      const Flexible(
+                        child: Text(
+                          'Notificaciones por correo',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: cs.primaryContainer,
                           borderRadius: BorderRadius.circular(12),
@@ -402,8 +479,8 @@ class _SettingsPageState extends State<SettingsPage>
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Row(
-                          children: const [
+                        content: const Row(
+                          children: [
                             Icon(Icons.info_outline, color: Colors.white),
                             SizedBox(width: 8),
                             Expanded(
@@ -429,8 +506,6 @@ class _SettingsPageState extends State<SettingsPage>
 
             // ── Preferencias ─────────────────────────────────────────────
             _animated(idx++, _sectionHeader('Preferencias', cs, tt)),
-
-            // Tema oscuro/claro — conectado a ThemeProvider
             _animated(
               idx++,
               ListTile(
@@ -441,9 +516,7 @@ class _SettingsPageState extends State<SettingsPage>
                   color: cs.primary,
                 ),
                 title: const Text('Tema oscuro'),
-                subtitle: Text(
-                  themeProvider.isDark ? 'Activo' : 'Inactivo',
-                ),
+                subtitle: Text(themeProvider.isDark ? 'Activo' : 'Inactivo'),
                 trailing: Switch(
                   value: themeProvider.isDark,
                   onChanged: (_) => themeProvider.toggleTheme(),
@@ -451,17 +524,13 @@ class _SettingsPageState extends State<SettingsPage>
               ),
             ),
             _divider(cs),
-
-            // Carrera predeterminada — conectado a PreferencesProvider
             _animated(
               idx++,
               ListTile(
                 leading: Icon(Icons.school_outlined, color: cs.primary),
                 title: const Text('Carrera predeterminada'),
                 subtitle: Text(
-                  prefsProvider.defaultCarrera != null
-                      ? prefsProvider.defaultCarrera!
-                      : 'Sin preferencia',
+                  prefsProvider.defaultCarrera ?? 'Sin preferencia',
                   style: tt.bodySmall?.copyWith(
                     color: cs.onSurface.withValues(alpha: 0.55),
                   ),
@@ -483,13 +552,10 @@ class _SettingsPageState extends State<SettingsPage>
               ),
             ),
             _divider(cs),
-
-            // Semestre predeterminado — conectado a PreferencesProvider
             _animated(
               idx++,
               ListTile(
-                leading:
-                    Icon(Icons.layers_outlined, color: cs.primary),
+                leading: Icon(Icons.layers_outlined, color: cs.primary),
                 title: const Text('Semestre predeterminado'),
                 subtitle: Text(
                   prefsProvider.defaultSemestre != null
@@ -587,7 +653,8 @@ class _SettingsPageState extends State<SettingsPage>
             _animated(
               idx++,
               Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -659,11 +726,13 @@ class _SettingsPageState extends State<SettingsPage>
             ),
             _animated(
               idx++,
-              _arrowTile(
-                icon: Icons.lock_outline_rounded,
-                label: 'Cambiar contraseña',
-                cs: cs,
+              _ScaleWrapper(
                 onTap: () => _showChangePasswordDialog(context),
+                child: _arrowTile(
+                  icon: Icons.lock_outline_rounded,
+                  label: 'Cambiar contraseña',
+                  cs: cs,
+                ),
               ),
             ),
 
@@ -712,7 +781,8 @@ class _SettingsPageState extends State<SettingsPage>
                   color: cs.primary,
                 ),
                 title: const Text('Tema oscuro'),
-                subtitle: Text(themeProvider.isDark ? 'Activo' : 'Inactivo'),
+                subtitle:
+                    Text(themeProvider.isDark ? 'Activo' : 'Inactivo'),
                 trailing: Switch(
                   value: themeProvider.isDark,
                   onChanged: (_) => themeProvider.toggleTheme(),
@@ -768,9 +838,7 @@ class _SettingsPageState extends State<SettingsPage>
             _animated(
               idx++,
               _arrowTile(
-                  icon: Icons.support_agent_rounded,
-                  label: 'Soporte',
-                  cs: cs),
+                  icon: Icons.support_agent_rounded, label: 'Soporte', cs: cs),
             ),
             const SizedBox(height: 32),
           ],
@@ -797,5 +865,312 @@ class _SettingsPageState extends State<SettingsPage>
     }
 
     return _buildAlumno(context);
+  }
+}
+
+// ─── Wrapper de escala al presionar ───────────────────────────────────────────
+
+class _ScaleWrapper extends StatefulWidget {
+  const _ScaleWrapper({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  State<_ScaleWrapper> createState() => _ScaleWrapperState();
+}
+
+class _ScaleWrapperState extends State<_ScaleWrapper> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: widget.child,
+        ),
+      );
+}
+
+// ─── Diálogo cambiar contraseña con animación de botón ────────────────────────
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _currentCtrl = TextEditingController();
+  final _newCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  _SaveState _saveState = _SaveState.idle;
+
+  @override
+  void dispose() {
+    _currentCtrl.dispose();
+    _newCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // Capturar referencia antes de cualquier await
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    // Verificar si había huella activa antes de cambiar contraseña
+    final hadBio = await BiometricService.getCredentials();
+
+    setState(() => _saveState = _SaveState.saving);
+    try {
+      await auth.changePassword(
+        currentPassword: _currentCtrl.text,
+        newPassword: _newCtrl.text,
+      );
+
+      // La contraseña cambió: invalidar credenciales biométricas guardadas
+      await BiometricService.clearCredentials();
+
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final nav = Navigator.of(context);
+
+      setState(() => _saveState = _SaveState.success);
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+
+      nav.pop();
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: const Text('Contraseña actualizada correctamente'),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+
+      if (hadBio != null) {
+        messenger.showSnackBar(SnackBar(
+          content: const Text(
+              'Huella desactivada. Actívala de nuevo en Ajustes'),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saveState = _SaveState.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isBusy = _saveState != _SaveState.idle;
+    return AlertDialog(
+      title: const Text('Cambiar contraseña'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _currentCtrl,
+              obscureText: true,
+              decoration:
+                  const InputDecoration(labelText: 'Contraseña actual'),
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? 'Campo requerido' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _newCtrl,
+              obscureText: true,
+              decoration:
+                  const InputDecoration(labelText: 'Nueva contraseña'),
+              validator: (v) =>
+                  (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirmCtrl,
+              obscureText: true,
+              decoration:
+                  const InputDecoration(labelText: 'Confirmar contraseña'),
+              validator: (v) =>
+                  v != _newCtrl.text ? 'Las contraseñas no coinciden' : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: isBusy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: isBusy ? null : _save,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _saveState == _SaveState.saving
+                ? const SizedBox(
+                    key: ValueKey('saving'),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : _saveState == _SaveState.success
+                    ? const Icon(
+                        Icons.check_rounded,
+                        key: ValueKey('success'),
+                        color: Colors.green,
+                      )
+                    : const Text('Guardar', key: ValueKey('idle')),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Diálogo confirmar contraseña para activar huella ─────────────────────────
+
+class _BioConfirmDialog extends StatefulWidget {
+  const _BioConfirmDialog({required this.email});
+  final String email;
+
+  @override
+  State<_BioConfirmDialog> createState() => _BioConfirmDialogState();
+}
+
+class _BioConfirmDialogState extends State<_BioConfirmDialog> {
+  final _passwordCtrl = TextEditingController();
+  _SaveState _saveState = _SaveState.idle;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirm() async {
+    if (_passwordCtrl.text.isEmpty) {
+      setState(() => _error = 'Ingresa tu contraseña');
+      return;
+    }
+    // Capturar referencia antes del primer await
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    setState(() {
+      _saveState = _SaveState.saving;
+      _error = null;
+    });
+    try {
+      final ok = await auth.login(widget.email, _passwordCtrl.text);
+      if (!mounted) return;
+      if (!ok) {
+        setState(() {
+          _saveState = _SaveState.idle;
+          _error = auth.lastError ?? 'Contraseña incorrecta';
+        });
+        return;
+      }
+      await BiometricService.saveCredentials(
+        correo: widget.email,
+        password: _passwordCtrl.text,
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final nav = Navigator.of(context);
+      setState(() => _saveState = _SaveState.success);
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      nav.pop(true);
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: const Text('Huella activada correctamente'),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saveState = _SaveState.idle;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isBusy = _saveState != _SaveState.idle;
+    return AlertDialog(
+      title: const Text('Confirma tu contraseña'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Para activar la huella, confirma tu contraseña actual.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _passwordCtrl,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'Contraseña',
+              prefixIcon: const Icon(Icons.lock_outline_rounded),
+              errorText: _error,
+            ),
+            onSubmitted: (_) => isBusy ? null : _confirm(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: isBusy ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: isBusy ? null : _confirm,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _saveState == _SaveState.saving
+                ? const SizedBox(
+                    key: ValueKey('saving'),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : _saveState == _SaveState.success
+                    ? const Icon(
+                        Icons.check_rounded,
+                        key: ValueKey('success'),
+                        color: Colors.green,
+                      )
+                    : const Text('Confirmar', key: ValueKey('idle')),
+          ),
+        ),
+      ],
+    );
   }
 }

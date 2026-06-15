@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/services/biometric_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ets_provider.dart';
 import 'home_admin_page.dart';
@@ -10,7 +11,8 @@ import 'home_dashboard.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.showBiometricOnLoad = false});
+  final bool showBiometricOnLoad;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -27,6 +29,9 @@ class _LoginPageState extends State<LoginPage>
   late final Animation<double> _animPassword;
   late final Animation<double> _animButton;
   late final Animation<double> _animLinks;
+  late final Animation<double> _animBio;
+
+  bool _showBioButton = false;
 
   @override
   void initState() {
@@ -41,13 +46,29 @@ class _LoginPageState extends State<LoginPage>
     _animPassword = _stagger(0.30, 0.75);
     _animButton = _stagger(0.45, 0.90);
     _animLinks = _stagger(0.60, 1.00);
+    _animBio = _stagger(0.70, 1.00);
+
+    _checkBiometric();
   }
 
-  // Crea una animación con inicio y fin escalonados sobre el mismo controller
   Animation<double> _stagger(double start, double end) => CurvedAnimation(
         parent: _enterCtrl,
         curve: Interval(start, end, curve: Curves.easeOutCubic),
       );
+
+  Future<void> _checkBiometric() async {
+    final available = await BiometricService.isAvailable();
+    if (!available) return;
+    final creds = await BiometricService.getCredentials();
+    if (creds == null || !mounted) return;
+    setState(() => _showBioButton = true);
+
+    if (widget.showBiometricOnLoad) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      _authenticateBiometric();
+    }
+  }
 
   @override
   void dispose() {
@@ -57,9 +78,9 @@ class _LoginPageState extends State<LoginPage>
     super.dispose();
   }
 
-  // ── Lógica de negocio INTACTA — no modificar ──────────────────────────────
+  // ── Lógica de negocio ─────────────────────────────────────────────────────
 
-  void _intentarLogin() async {
+  Future<void> _intentarLogin() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, llena ambos campos')),
@@ -75,7 +96,6 @@ class _LoginPageState extends State<LoginPage>
 
     if (exito) {
       if (!mounted) return;
-
       Provider.of<EtsProvider>(context, listen: false).limpiarFiltros();
 
       if (auth.currentRole == 'admin') {
@@ -103,9 +123,67 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  Future<void> _authenticateBiometric() async {
+    final authed = await BiometricService.authenticate();
+    if (!mounted) return;
+    if (!authed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Autenticación fallida. Intenta con tu contraseña'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final creds = await BiometricService.getCredentials();
+    if (creds == null || !mounted) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final ok = await auth.login(creds['correo']!, creds['password']!);
+    if (!mounted) return;
+
+    if (!ok) {
+      // Credenciales guardadas desactualizadas
+      await BiometricService.clearCredentials();
+      if (!mounted) return;
+      setState(() => _showBioButton = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Credenciales desactualizadas. Inicia sesión manualmente'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (auth.currentRole == 'admin') {
+      // No permitir acceso biométrico para administradores
+      await BiometricService.clearCredentials();
+      if (!mounted) return;
+      setState(() => _showBioButton = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La autenticación biométrica no está disponible '
+            'para administradores',
+          ),
+        ),
+      );
+      return;
+    }
+
+    Provider.of<EtsProvider>(context, listen: false).limpiarFiltros();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomeDashboard()),
+    );
+  }
+
   // ── Helpers de UI ─────────────────────────────────────────────────────────
 
-  // Envuelve un widget en fade + slide desde abajo usando la animación dada
   Widget _slideIn(Animation<double> anim, Widget child) => FadeTransition(
         opacity: anim,
         child: SlideTransition(
@@ -140,7 +218,8 @@ class _LoginPageState extends State<LoginPage>
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.3)),
+          borderSide:
+              BorderSide(color: cs.outline.withValues(alpha: 0.3)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -168,7 +247,8 @@ class _LoginPageState extends State<LoginPage>
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -260,6 +340,28 @@ class _LoginPageState extends State<LoginPage>
                     onPressed: _intentarLogin,
                   ),
                 ),
+
+                // ── Botón biométrico (condicional) ───────────────────────
+                if (_showBioButton)
+                  _slideIn(
+                    _animBio,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: OutlinedButton.icon(
+                        onPressed: _authenticateBiometric,
+                        icon: const Icon(Icons.fingerprint),
+                        label: const Text('Entrar con huella digital'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: cs.primary,
+                          side: BorderSide(color: cs.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 4),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/services/biometric_service.dart';
 import 'features/ets/presentation/pages/home_dashboard.dart';
 import 'features/ets/presentation/pages/login_page.dart';
 import 'features/ets/presentation/providers/auth_provider.dart';
@@ -90,6 +91,14 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
+    // Verificar si hay credenciales biométricas guardadas (solo para alumnos)
+    bool showBiometric = false;
+    final bioAvailable = await BiometricService.isAvailable();
+    if (bioAvailable) {
+      final bioCreds = await BiometricService.getCredentials();
+      showBiometric = bioCreds != null;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool(_kOnboardingKey) ?? false;
 
@@ -103,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
             curve: Curves.easeInOut,
           ),
           child: hasSeenOnboarding
-              ? const LoginPage()
+              ? LoginPage(showBiometricOnLoad: showBiometric)
               : const OnboardingPage(),
         ),
       ),
