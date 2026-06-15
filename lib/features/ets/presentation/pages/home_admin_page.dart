@@ -33,6 +33,10 @@ class _HomeAdminPageState extends State<HomeAdminPage>
       vsync: this,
     )..forward();
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<EtsProvider>().loadAllExams();
+    });
+
     _anim1 = _stagger(0.00, 0.40);
     _anim2 = _stagger(0.20, 0.60);
     _anim3 = _stagger(0.40, 0.80);
@@ -113,7 +117,7 @@ class _HomeAdminPageState extends State<HomeAdminPage>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    final catalogo = etsProvider.catalogoCompleto;
+    final catalogo = etsProvider.adminCatalogo;
     final total = catalogo.length;
 
     final hoy = DateTime.now().toUtc();

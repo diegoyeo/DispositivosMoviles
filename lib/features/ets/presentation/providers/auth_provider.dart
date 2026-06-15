@@ -71,6 +71,16 @@ class AuthProvider extends ChangeNotifier {
     _clearSession();
   }
 
+  Future<void> logoutSilent() async {
+    currentRole = null;
+    currentEmail = null;
+    currentNombre = null;
+    currentApellido = null;
+    lastError = null;
+    notifyListeners();
+    await _clearSession();
+  }
+
   Future<void> checkAuthOnStartup() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_kToken);

@@ -157,7 +157,7 @@ class EtsProvider extends ChangeNotifier {
 
   Future<void> toggleVisibility(int examId, bool visible) async {
     await repository.toggleVisibility(examId, visible);
-    await loadAllExams();
+    await Future.wait([loadAllExams(), loadExams()]);
   }
 
   void buscarPorMateria(String texto) {

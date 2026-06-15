@@ -22,6 +22,7 @@ class EtsHomePage extends StatefulWidget {
 class _EtsHomePageState extends State<EtsHomePage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _listCtrl;
+  PreferencesProvider? _trackedPrefs;
 
   String _carreraFiltro = 'Todas';
   String _semestreFiltro = 'Todos';
@@ -41,31 +42,39 @@ class _EtsHomePageState extends State<EtsHomePage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
       Provider.of<CatalogosProvider>(context, listen: false).loadCarreras();
-
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      if (auth.currentRole == null) return;
 
       final pref = Provider.of<PreferencesProvider>(context, listen: false);
       final ets = Provider.of<EtsProvider>(context, listen: false);
 
-      final carrera = pref.defaultCarrera;
-      final semestre = pref.defaultSemestre;
-
-      if (carrera != null) {
-        setState(() => _carreraFiltro = carrera);
-        ets.filtrarPorCarrera(carrera);
-      }
-      if (semestre != null) {
-        setState(() => _semestreFiltro = semestre);
-        ets.filtrarPorSemestre(semestre);
-      }
+      _applyPreferences(pref, ets);
+      _trackedPrefs = pref;
+      pref.addListener(_onPreferencesChanged);
     });
+  }
+
+  void _applyPreferences(PreferencesProvider pref, EtsProvider ets) {
+    final carrera = pref.defaultCarrera;
+    final semestre = pref.defaultSemestre;
+    setState(() {
+      _carreraFiltro = carrera ?? 'Todas';
+      _semestreFiltro = semestre ?? 'Todos';
+    });
+    ets.filtrarPorCarrera(carrera);
+    ets.filtrarPorSemestre(semestre);
+  }
+
+  void _onPreferencesChanged() {
+    if (!mounted) return;
+    final pref = Provider.of<PreferencesProvider>(context, listen: false);
+    final ets = Provider.of<EtsProvider>(context, listen: false);
+    _applyPreferences(pref, ets);
+    _listCtrl.forward(from: 0);
   }
 
   @override
   void dispose() {
+    _trackedPrefs?.removeListener(_onPreferencesChanged);
     _listCtrl.dispose();
     super.dispose();
   }

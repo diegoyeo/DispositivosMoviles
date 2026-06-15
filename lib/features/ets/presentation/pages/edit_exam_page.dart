@@ -58,6 +58,28 @@ class _EditExamPageState extends State<EditExamPage>
         curve: Interval(start, end, curve: Curves.easeOutCubic),
       );
 
+  // ── Helpers de fecha ──────────────────────────────────────────────────────
+
+  static const _meses = [
+    '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ];
+
+  String _formatFechaEs(DateTime d) => '${d.day}-${_meses[d.month]}-${d.year}';
+
+  Future<void> _pickFecha() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null && mounted) {
+      setState(() => _fechaController.text = _formatFechaEs(picked));
+    }
+  }
+
   @override
   void dispose() {
     _materiaController.dispose();
@@ -263,10 +285,17 @@ class _EditExamPageState extends State<EditExamPage>
                         flex: 3,
                         child: TextFormField(
                           controller: _fechaController,
+                          readOnly: true,
+                          onTap: _pickFecha,
                           validator: (v) =>
                               v!.isEmpty ? 'Campo requerido' : null,
                           decoration: _dec('Fecha',
-                              Icons.calendar_today_outlined, cs),
+                              Icons.calendar_today_outlined, cs).copyWith(
+                            suffixIcon: Icon(
+                              Icons.arrow_drop_down,
+                              color: cs.primary,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),

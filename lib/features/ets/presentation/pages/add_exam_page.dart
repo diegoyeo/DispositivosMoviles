@@ -61,6 +61,28 @@ class _AddExamPageState extends State<AddExamPage>
         curve: Interval(start, end, curve: Curves.easeOutCubic),
       );
 
+  // ── Helpers de fecha ──────────────────────────────────────────────────────
+
+  static const _meses = [
+    '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ];
+
+  String _formatFechaEs(DateTime d) => '${d.day}-${_meses[d.month]}-${d.year}';
+
+  Future<void> _pickFecha() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null && mounted) {
+      setState(() => _fechaController.text = _formatFechaEs(picked));
+    }
+  }
+
   // ── Lógica de negocio INTACTA ──────────────────────────────────────────────
 
   void _guardarExamen() async {
@@ -330,10 +352,42 @@ class _AddExamPageState extends State<AddExamPage>
                 // Fecha
                 _slideIn(
                   a2,
-                  _buildField(
+                  TextFormField(
                     controller: _fechaController,
-                    label: 'Fecha (ej. 15-Junio-2026)',
-                    icon: Icons.calendar_today_rounded,
+                    readOnly: true,
+                    onTap: _pickFecha,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Campo requerido' : null,
+                    decoration: InputDecoration(
+                      labelText: 'Fecha',
+                      prefixIcon:
+                          Icon(Icons.calendar_today_rounded, color: cs.primary),
+                      suffixIcon:
+                          Icon(Icons.arrow_drop_down, color: cs.primary),
+                      filled: true,
+                      fillColor: cs.surface.withValues(alpha: 0.8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                            color: cs.outline.withValues(alpha: 0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: cs.primary, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: cs.error),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: cs.error, width: 2),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),

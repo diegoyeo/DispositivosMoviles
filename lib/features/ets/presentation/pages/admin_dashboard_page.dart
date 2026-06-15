@@ -150,10 +150,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     final tt = Theme.of(context).textTheme;
 
     final adminCatalogo = etsProvider.adminCatalogo;
-    final totalExamenes = adminCatalogo.length;
-    final totalISC = adminCatalogo.where((e) => e.carrera == 'ISC').length;
-    final totalLCD = adminCatalogo.where((e) => e.carrera == 'LCD').length;
-    final totalIIA = adminCatalogo.where((e) => e.carrera == 'IIA').length;
+    // Stats reflect current visibility filter so cards match list counts
+    final visibilityFiltered = _visibilityFilter == 'Todos'
+        ? adminCatalogo
+        : adminCatalogo
+            .where((e) =>
+                _visibilityFilter == 'Visibles' ? e.visible : !e.visible)
+            .toList();
+    final totalExamenes = visibilityFiltered.length;
+    final totalISC = visibilityFiltered.where((e) => e.carrera == 'ISC').length;
+    final totalLCD = visibilityFiltered.where((e) => e.carrera == 'LCD').length;
+    final totalIIA = visibilityFiltered.where((e) => e.carrera == 'IIA').length;
 
     final examenesMostrados = adminCatalogo.where((exam) {
       final coincideCarrera =

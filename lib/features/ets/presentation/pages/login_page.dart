@@ -41,6 +41,7 @@ class _LoginPageState extends State<LoginPage>
   bool _bioDeviceSupported = false;
   _BioBtnState _bioBtnState = _BioBtnState.stateA;
   bool _rememberCorreo = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -91,16 +92,16 @@ class _LoginPageState extends State<LoginPage>
 
     setState(() => _bioDeviceSupported = true);
 
-    // 3. Determinar estado del botón
-    if (savedCorreo == null) {
-      setState(() => _bioBtnState = _BioBtnState.stateA);
-      return;
-    }
-
+    // 3. Determinar estado del botón — solo depende de isBiometricLinked()
     final linked = await BiometricService.isBiometricLinked();
     if (!mounted) return;
-    setState(
-        () => _bioBtnState = linked ? _BioBtnState.stateC : _BioBtnState.stateB);
+    if (linked) {
+      setState(() => _bioBtnState = _BioBtnState.stateC);
+    } else if (savedCorreo != null) {
+      setState(() => _bioBtnState = _BioBtnState.stateB);
+    } else {
+      setState(() => _bioBtnState = _BioBtnState.stateA);
+    }
 
     // 4. Auto-disparar si viene del splash con sesión activa
     if (widget.autoTriggerBiometric && linked) {
@@ -271,6 +272,7 @@ class _LoginPageState extends State<LoginPage>
     required IconData icon,
     TextInputType? keyboardType,
     bool obscureText = false,
+    Widget? suffixIcon,
   }) {
     final cs = Theme.of(context).colorScheme;
     return TextField(
@@ -280,6 +282,7 @@ class _LoginPageState extends State<LoginPage>
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: cs.primary),
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: cs.surface.withValues(alpha: 0.8),
         border: OutlineInputBorder(
@@ -470,7 +473,17 @@ class _LoginPageState extends State<LoginPage>
                               controller: _passwordController,
                               label: 'Contraseña',
                               icon: Icons.lock_outline_rounded,
-                              obscureText: true,
+                              obscureText: _obscurePassword,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: cs.primary,
+                                ),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                              ),
                             ),
                           ),
                           // Checkbox recordar correo

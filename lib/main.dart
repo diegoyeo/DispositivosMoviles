@@ -36,9 +36,47 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
         ChangeNotifierProvider(create: (_) => PreferencesProvider(prefs)),
       ],
-      child: const MyApp(),
+      child: const AppLifecycleObserver(
+        child: MyApp(),
+      ),
     ),
   );
+}
+
+class AppLifecycleObserver extends StatefulWidget {
+  const AppLifecycleObserver({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<AppLifecycleObserver> createState() => _AppLifecycleObserverState();
+}
+
+class _AppLifecycleObserverState extends State<AppLifecycleObserver>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached && mounted) {
+      final auth = context.read<AuthProvider>();
+      if (auth.currentRole == 'admin') {
+        auth.logoutSilent();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class MyApp extends StatelessWidget {

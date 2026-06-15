@@ -20,6 +20,7 @@ class _RegisterPageState extends State<RegisterPage>
   final _apellidoController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   late final AnimationController _enterCtrl;
   late final Animation<double> _animNombre;
@@ -41,6 +42,7 @@ class _RegisterPageState extends State<RegisterPage>
     _animEmail = _stagger(0.30, 0.75);
     _animPassword = _stagger(0.45, 0.90);
     _animButton = _stagger(0.60, 1.00);
+    _passwordController.addListener(_onPasswordChanged);
   }
 
   Animation<double> _stagger(double start, double end) => CurvedAnimation(
@@ -53,9 +55,70 @@ class _RegisterPageState extends State<RegisterPage>
     _nombreController.dispose();
     _apellidoController.dispose();
     _emailController.dispose();
+    _passwordController.removeListener(_onPasswordChanged);
     _passwordController.dispose();
     _enterCtrl.dispose();
     super.dispose();
+  }
+
+  void _onPasswordChanged() => setState(() {});
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'La contraseña es obligatoria';
+    if (value.length < 8) return 'Mínimo 8 caracteres';
+    if (!value.contains(RegExp(r'[A-Z]'))) {
+      return 'Debe incluir al menos una mayúscula';
+    }
+    if (!value.contains(RegExp(r'[a-z]'))) {
+      return 'Debe incluir al menos una minúscula';
+    }
+    if (!value.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]'))) {
+      return 'Debe incluir al menos un símbolo especial';
+    }
+    return null;
+  }
+
+  Widget _buildRequirements(ColorScheme cs) {
+    final p = _passwordController.text;
+    final checks = <(bool, String)>[
+      (p.length >= 8, 'Mínimo 8 caracteres'),
+      (p.contains(RegExp(r'[A-Z]')), 'Una mayúscula'),
+      (p.contains(RegExp(r'[a-z]')), 'Una minúscula'),
+      (p.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]')),
+          r'Un símbolo especial (!@#$%...)'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: checks.map((req) {
+        final ok = req.$1;
+        return Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  ok
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.cancel_outlined,
+                  key: ValueKey(ok),
+                  size: 14,
+                  color: ok ? cs.primary : cs.error,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                req.$2,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: ok ? cs.primary : cs.error,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 
   // ── Lógica de negocio INTACTA — no modificar ──────────────────────────────
@@ -124,6 +187,7 @@ class _RegisterPageState extends State<RegisterPage>
     required IconData icon,
     TextInputType? keyboardType,
     bool obscureText = false,
+    Widget? suffixIcon,
   }) {
     final cs = Theme.of(context).colorScheme;
     return TextField(
@@ -133,6 +197,7 @@ class _RegisterPageState extends State<RegisterPage>
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: cs.primary),
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: cs.surface.withValues(alpha: 0.8),
         border: OutlineInputBorder(
@@ -157,6 +222,12 @@ class _RegisterPageState extends State<RegisterPage>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+
+    final p = _passwordController.text;
+    final allValid = p.length >= 8 &&
+        p.contains(RegExp(r'[A-Z]')) &&
+        p.contains(RegExp(r'[a-z]')) &&
+        p.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]'));
 
     return Scaffold(
       appBar: AppBar(
@@ -255,9 +326,21 @@ class _RegisterPageState extends State<RegisterPage>
                               controller: _passwordController,
                               label: 'Contraseña',
                               icon: Icons.lock_outline_rounded,
-                              obscureText: true,
+                              obscureText: _obscurePassword,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: cs.primary,
+                                ),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                              ),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          _buildRequirements(cs),
                         ],
                       ),
                     ),
@@ -271,7 +354,7 @@ class _RegisterPageState extends State<RegisterPage>
                   _animButton,
                   _GradientButton(
                     label: 'Crear Cuenta',
-                    onPressed: _registrar,
+                    onPressed: allValid ? _registrar : null,
                   ),
                 ),
 
@@ -292,7 +375,7 @@ class _RegisterPageState extends State<RegisterPage>
 class _GradientButton extends StatefulWidget {
   const _GradientButton({required this.label, required this.onPressed});
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   State<_GradientButton> createState() => _GradientButtonState();
@@ -304,42 +387,52 @@ class _GradientButtonState extends State<_GradientButton> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onPressed();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: double.infinity,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [cs.secondary, cs.primary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: cs.secondary.withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+    final isEnabled = widget.onPressed != null;
+    return AnimatedOpacity(
+      opacity: isEnabled ? 1.0 : 0.5,
+      duration: const Duration(milliseconds: 200),
+      child: GestureDetector(
+        onTapDown: isEnabled ? (_) => setState(() => _pressed = true) : null,
+        onTapUp: isEnabled
+            ? (_) {
+                setState(() => _pressed = false);
+                widget.onPressed!();
+              }
+            : null,
+        onTapCancel:
+            isEnabled ? () => setState(() => _pressed = false) : null,
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Container(
+            width: double.infinity,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cs.secondary, cs.primary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              widget.label,
-              style: TextStyle(
-                color: cs.onSecondary,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: isEnabled
+                  ? [
+                      BoxShadow(
+                        color: cs.secondary.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Center(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  color: cs.onSecondary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ),

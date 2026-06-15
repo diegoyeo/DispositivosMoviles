@@ -297,6 +297,12 @@ class _SettingsPageState extends State<SettingsPage>
     final initial = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
     final email = auth.currentEmail ?? '';
 
+    const carreraOpts = ['Sin preferencia', 'ISC', 'LCD', 'IIA'];
+    const semestreOpts = [
+      'Sin preferencia',
+      '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    ];
+
     var idx = 0;
     return Scaffold(
       appBar: AppBar(
@@ -534,100 +540,136 @@ class _SettingsPageState extends State<SettingsPage>
               ),
             ),
             _divider(cs),
+            // Carrera predeterminada con chips
             _animated(
               idx++,
-              ListTile(
-                leading: Icon(Icons.school_outlined, color: cs.primary),
-                title: const Text('Carrera predeterminada'),
-                subtitle: Text(
-                  prefsProvider.defaultCarrera ?? 'Sin preferencia',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.55),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.school_outlined, color: cs.primary),
+                        const SizedBox(width: 16),
+                        Text('Carrera predeterminada',
+                            style: tt.bodyLarge),
+                      ],
+                    ),
                   ),
-                ),
-                trailing: DropdownButton<String>(
-                  value: prefsProvider.defaultCarrera ?? 'ISC',
-                  underline: const SizedBox(),
-                  items: ['ISC', 'LCD', 'IIA']
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) {
-                      prefsProvider.setDefaultCarrera(v);
-                      _showSnackBar('Carrera predeterminada guardada');
-                    }
-                  },
-                ),
+                  ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding:
+                          const EdgeInsets.fromLTRB(56, 0, 16, 12),
+                      child: Row(
+                        children:
+                            List.generate(carreraOpts.length, (i) {
+                          final opt = carreraOpts[i];
+                          final sel = opt == 'Sin preferencia'
+                              ? prefsProvider.defaultCarrera == null
+                              : opt == prefsProvider.defaultCarrera;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                                right:
+                                    i < carreraOpts.length - 1 ? 8 : 0),
+                            child: _PrefChip(
+                              label: opt,
+                              selected: sel,
+                              onTap: () {
+                                prefsProvider.setDefaultCarrera(
+                                    opt == 'Sin preferencia'
+                                        ? null
+                                        : opt);
+                                _showFloatingSnackBar(
+                                    'Preferencia guardada');
+                              },
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             _divider(cs),
+            // Semestre predeterminado con chips
             _animated(
               idx++,
-              ListTile(
-                leading: Icon(Icons.layers_outlined, color: cs.primary),
-                title: const Text('Semestre predeterminado'),
-                subtitle: Text(
-                  prefsProvider.defaultSemestre != null
-                      ? 'Semestre ${prefsProvider.defaultSemestre}'
-                      : 'Sin preferencia',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.55),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.layers_outlined, color: cs.primary),
+                        const SizedBox(width: 16),
+                        Text('Semestre predeterminado',
+                            style: tt.bodyLarge),
+                      ],
+                    ),
                   ),
-                ),
-                trailing: DropdownButton<String>(
-                  value: prefsProvider.defaultSemestre ?? '1',
-                  underline: const SizedBox(),
-                  items: ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-                      .map((s) =>
-                          DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) {
-                      prefsProvider.setDefaultSemestre(v);
-                      _showSnackBar('Semestre predeterminado guardado');
-                    }
-                  },
-                ),
+                  ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding:
+                          const EdgeInsets.fromLTRB(56, 0, 16, 12),
+                      child: Row(
+                        children:
+                            List.generate(semestreOpts.length, (i) {
+                          final opt = semestreOpts[i];
+                          final sel = opt == 'Sin preferencia'
+                              ? prefsProvider.defaultSemestre == null
+                              : opt == prefsProvider.defaultSemestre;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                                right: i < semestreOpts.length - 1
+                                    ? 8
+                                    : 0),
+                            child: _PrefChip(
+                              label: opt,
+                              selected: sel,
+                              onTap: () {
+                                prefsProvider.setDefaultSemestre(
+                                    opt == 'Sin preferencia'
+                                        ? null
+                                        : opt);
+                                _showFloatingSnackBar(
+                                    'Preferencia guardada');
+                              },
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
             // ── Acerca de ────────────────────────────────────────────────
             _animated(idx++, _sectionHeader('Acerca de', cs, tt)),
+            _animated(idx++, const _AcercaDeCard()),
             _animated(
               idx++,
-              _arrowTile(
-                icon: Icons.info_outline_rounded,
-                label: 'Versión de la app',
-                subtitle: 'v1.0.0 — MOVIDA ETS ESCOM',
-                cs: cs,
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 24),
+                child: Text(
+                  '© 2026 MOVIDA · ESCOM IPN',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
-            _divider(cs),
-            _animated(
-              idx++,
-              _arrowTile(
-                  icon: Icons.gavel_rounded,
-                  label: 'Términos y condiciones',
-                  cs: cs),
-            ),
-            _divider(cs),
-            _animated(
-              idx++,
-              _arrowTile(
-                  icon: Icons.privacy_tip_outlined,
-                  label: 'Política de privacidad',
-                  cs: cs),
-            ),
-            _divider(cs),
-            _animated(
-              idx++,
-              _arrowTile(
-                  icon: Icons.star_outline_rounded,
-                  label: 'Calificar la app',
-                  cs: cs),
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -734,18 +776,6 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               ),
             ),
-            _animated(
-              idx++,
-              _ScaleWrapper(
-                onTap: () => _showChangePasswordDialog(context),
-                child: _arrowTile(
-                  icon: Icons.lock_outline_rounded,
-                  label: 'Cambiar contraseña',
-                  cs: cs,
-                ),
-              ),
-            ),
-
             // ── Gestión del Sistema ───────────────────────────────────────
             _animated(
                 idx++, _sectionHeader('Gestión del Sistema', cs, tt)),
@@ -828,29 +858,21 @@ class _SettingsPageState extends State<SettingsPage>
             // ── Acerca de ────────────────────────────────────────────────
             _animated(idx++, _sectionHeader('Acerca de', cs, tt)),
             _animated(
+                idx++, const _AcercaDeCard(isAdmin: true)),
+            _animated(
               idx++,
-              _arrowTile(
-                icon: Icons.info_outline_rounded,
-                label: 'Versión de la app',
-                subtitle: 'v1.0.0 — MOVIDA ETS ESCOM (Admin)',
-                cs: cs,
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 24),
+                child: Text(
+                  '© 2026 MOVIDA · ESCOM IPN',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
-            _divider(cs),
-            _animated(
-              idx++,
-              _arrowTile(
-                  icon: Icons.description_outlined,
-                  label: 'Documentación técnica',
-                  cs: cs),
-            ),
-            _divider(cs),
-            _animated(
-              idx++,
-              _arrowTile(
-                  icon: Icons.support_agent_rounded, label: 'Soporte', cs: cs),
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -923,6 +945,9 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   final _confirmCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   _SaveState _saveState = _SaveState.idle;
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
 
   @override
   void dispose() {
@@ -1001,27 +1026,51 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
           children: [
             TextFormField(
               controller: _currentCtrl,
-              obscureText: true,
-              decoration:
-                  const InputDecoration(labelText: 'Contraseña actual'),
+              obscureText: _obscureCurrent,
+              decoration: InputDecoration(
+                labelText: 'Contraseña actual',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureCurrent
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
+                ),
+              ),
               validator: (v) =>
                   (v == null || v.isEmpty) ? 'Campo requerido' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _newCtrl,
-              obscureText: true,
-              decoration:
-                  const InputDecoration(labelText: 'Nueva contraseña'),
+              obscureText: _obscureNew,
+              decoration: InputDecoration(
+                labelText: 'Nueva contraseña',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureNew
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () =>
+                      setState(() => _obscureNew = !_obscureNew),
+                ),
+              ),
               validator: (v) =>
                   (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _confirmCtrl,
-              obscureText: true,
-              decoration:
-                  const InputDecoration(labelText: 'Confirmar contraseña'),
+              obscureText: _obscureConfirm,
+              decoration: InputDecoration(
+                labelText: 'Confirmar contraseña',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureConfirm
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+              ),
               validator: (v) =>
                   v != _newCtrl.text ? 'Las contraseñas no coinciden' : null,
             ),
@@ -1073,6 +1122,7 @@ class _BioConfirmDialogState extends State<_BioConfirmDialog> {
   final _passwordCtrl = TextEditingController();
   _SaveState _saveState = _SaveState.idle;
   String? _error;
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -1144,11 +1194,17 @@ class _BioConfirmDialogState extends State<_BioConfirmDialog> {
           const SizedBox(height: 16),
           TextField(
             controller: _passwordCtrl,
-            obscureText: true,
+            obscureText: _obscure,
             decoration: InputDecoration(
               labelText: 'Contraseña',
               prefixIcon: const Icon(Icons.lock_outline_rounded),
               errorText: _error,
+              suffixIcon: IconButton(
+                icon: Icon(_obscure
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
             ),
             onSubmitted: (_) => isBusy ? null : _confirm(),
           ),
@@ -1181,6 +1237,204 @@ class _BioConfirmDialogState extends State<_BioConfirmDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Chip de preferencia (carrera / semestre) ─────────────────────────────────
+
+class _PrefChip extends StatefulWidget {
+  const _PrefChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_PrefChip> createState() => _PrefChipState();
+}
+
+class _PrefChipState extends State<_PrefChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? cs.primary
+                : cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: widget.selected
+                ? [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.selected) ...[
+                Icon(Icons.check_rounded,
+                    size: 16, color: cs.onPrimary),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.selected
+                      ? cs.onPrimary
+                      : cs.onSurfaceVariant,
+                  fontWeight: widget.selected
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Tarjeta informativa "Acerca de" ─────────────────────────────────────────
+
+class _AcercaDeCard extends StatelessWidget {
+  const _AcercaDeCard({this.isAdmin = false});
+  final bool isAdmin;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Bloque versión (centrado, sin ícono)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              children: [
+                Text(
+                  'MOVIDA ETS ESCOM',
+                  style: tt.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isAdmin ? 'Versión 1.0.0 · Admin' : 'Versión 1.0.0',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          Divider(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.5)),
+          if (!isAdmin) ...[
+            // Términos — solo informativo
+            ListTile(
+              leading: Icon(Icons.article_outlined,
+                  color: cs.onSurfaceVariant),
+              title: Text('Términos y Condiciones',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+              subtitle: Text(
+                'Al usar MOVIDA aceptas nuestros términos de uso y condiciones del servicio',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+              isThreeLine: true,
+            ),
+            Divider(
+                height: 1,
+                indent: 56,
+                color: cs.outlineVariant.withValues(alpha: 0.5)),
+            // Privacidad — solo informativo
+            ListTile(
+              leading: Icon(Icons.privacy_tip_outlined,
+                  color: cs.onSurfaceVariant),
+              title: Text('Política de Privacidad',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+              subtitle: Text(
+                'Tus datos son almacenados de forma segura y no son compartidos con terceros',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+              isThreeLine: true,
+            ),
+          ] else ...[
+            // Admin: documentación
+            ListTile(
+              leading: Icon(Icons.description_outlined,
+                  color: cs.onSurfaceVariant),
+              title: Text('Documentación técnica',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+              subtitle: Text(
+                'Manual de administración del sistema MOVIDA ETS',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+            Divider(
+                height: 1,
+                indent: 56,
+                color: cs.outlineVariant.withValues(alpha: 0.5)),
+            // Admin: soporte
+            ListTile(
+              leading: Icon(Icons.support_agent_rounded,
+                  color: cs.onSurfaceVariant),
+              title: Text('Soporte',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+              subtitle: Text(
+                'Contacta al equipo de soporte técnico del ESCOM IPN',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
