@@ -21,7 +21,6 @@ class _SettingsPageState extends State<SettingsPage>
   static const _kNotifKey = 'notifications_enabled';
 
   bool _recordatorios = false;
-  bool _emailNotifs = false;
   String _anticipacion = '1 día antes';
 
   // Switches admin locales
@@ -371,12 +370,60 @@ class _SettingsPageState extends State<SettingsPage>
             _divider(cs),
             _animated(
               idx++,
-              _switchTile(
-                icon: Icons.email_outlined,
-                label: 'Notificaciones por correo',
-                value: _emailNotifs,
-                onChanged: (v) => setState(() => _emailNotifs = v),
-                cs: cs,
+              Opacity(
+                opacity: 0.5,
+                child: ListTile(
+                  leading: Icon(Icons.email_outlined, color: cs.primary),
+                  title: Row(
+                    children: [
+                      const Text('Notificaciones por correo'),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Próximamente',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: IgnorePointer(
+                    child: Switch(value: false, onChanged: null),
+                  ),
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: const [
+                            Icon(Icons.info_outline, color: Colors.white),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Las notificaciones por correo estarán '
+                                'disponibles en una próxima actualización',
+                              ),
+                            ),
+                          ],
+                        ),
+                        backgroundColor: cs.primary,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
 
