@@ -25,7 +25,7 @@ class _SlideData {
 const List<_SlideData> _kSlides = [
   _SlideData(
     icon: Icons.school_rounded,
-    title: 'Bienvenido a BRUZZY',
+    title: 'Bienvenido a MOVIDA',
     description:
         'Tu guía definitiva para los Exámenes a Título de '
         'Suficiencia en ESCOM‑IPN. Todo lo que necesitas, '
@@ -49,7 +49,7 @@ const List<_SlideData> _kSlides = [
     icon: Icons.rocket_launch_rounded,
     title: '¡Listo para empezar!',
     description:
-        'Ya conoces todo lo que BRUZZY puede hacer por ti. '
+        'Ya conoces todo lo que MOVIDA puede hacer por ti. '
         '¡Comencemos juntos tu preparación!',
   ),
 ];
@@ -262,7 +262,14 @@ class _OnboardingPageState extends State<OnboardingPage>
             child: child,
           ),
           // "child" fijo: no se reconstruye en cada frame del float
-          child: _buildIconWithRing(provider, cs),
+          child: provider.currentPage == 0
+              ? Image.asset(
+                  'assets/images/logo.png',
+                  width: 180,
+                  height: 180,
+                  fit: BoxFit.contain,
+                )
+              : _buildIconWithRing(provider, cs),
         ),
       ),
     );

@@ -182,65 +182,56 @@ class _HomeAdminPageState extends State<HomeAdminPage>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ── Ícono escudo ──────────────────────────────────
-                    _scaleIn(
-                      _anim1,
-                      Center(
-                        child: Container(
-                          width: 112,
-                          height: 112,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: cs.primaryContainer.withValues(alpha: 0.75),
-                            boxShadow: [
-                              BoxShadow(
-                                color: cs.shadow.withValues(alpha: 0.35),
-                                blurRadius: 32,
-                                offset: const Offset(0, 12),
+                    // ── Ícono + Título ────────────────────────────────
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _scaleIn(
+                          _anim1,
+                          Center(
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _slideIn(
+                          _anim2,
+                          Column(
+                            children: [
+                              Text(
+                                'Bienvenido,',
+                                style: tt.headlineMedium?.copyWith(
+                                  color: cs.onPrimary,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                'Administrador',
+                                style: tt.headlineLarge?.copyWith(
+                                  color: cs.onPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Panel de Gestión ETS · ESCOM',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onPrimary.withValues(alpha: 0.85),
+                                  letterSpacing: 0.4,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
-                          child: Icon(
-                            Icons.shield_rounded,
-                            size: 62,
-                            color: cs.onPrimaryContainer,
-                          ),
                         ),
-                      ),
-                    ),
-
-                    // ── Título ────────────────────────────────────────
-                    _slideIn(
-                      _anim2,
-                      Column(
-                        children: [
-                          Text(
-                            'Bienvenido,',
-                            style: tt.headlineMedium?.copyWith(
-                              color: cs.onPrimary,
-                              fontWeight: FontWeight.w300,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            'Administrador',
-                            style: tt.headlineLarge?.copyWith(
-                              color: cs.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Panel de Gestión ETS · ESCOM',
-                            style: tt.bodyMedium?.copyWith(
-                              color: cs.onPrimary.withValues(alpha: 0.85),
-                              letterSpacing: 0.4,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
 
                     // ── Tarjeta resumen glassmorphism ─────────────────

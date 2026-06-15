@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../domain/entities/ets_exam.dart';
 import '../providers/ets_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/app_drawers.dart';
@@ -21,6 +22,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     with TickerProviderStateMixin {
   String _searchQuery = '';
   String _selectedCareer = 'Todas';
+  String _visibilityFilter = 'Todos';
   final TextEditingController _searchController = TextEditingController();
 
   late final AnimationController _fabCtrl;
@@ -54,6 +56,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     )..forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<EtsProvider>().loadAllExams();
+    });
   }
 
   @override
@@ -70,6 +76,57 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
       parent: _listCtrl,
       curve: Interval(start, (start + 0.45).clamp(0.0, 1.0),
           curve: Curves.easeOutCubic),
+    );
+  }
+
+  void _confirmToggleVisibility(
+    BuildContext context,
+    EtsExam exam,
+    EtsProvider etsProvider,
+    ColorScheme cs,
+  ) {
+    final willHide = exam.visible;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(willHide ? 'Ocultar examen' : 'Mostrar examen'),
+        content: Text(
+          willHide
+              ? '¿Ocultar este examen? Los alumnos no podrán verlo en las búsquedas pero quienes ya lo guardaron seguirán viéndolo en su calendario'
+              : '¿Mostrar este examen? Volverá a aparecer en las búsquedas de todos los alumnos',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await etsProvider.toggleVisibility(exam.id!, !exam.visible);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(willHide ? 'Examen ocultado' : 'Examen visible'),
+                  backgroundColor: willHide ? Colors.orange : Colors.green,
+                ));
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(e.toString().replaceFirst('Exception: ', '')),
+                  backgroundColor: cs.error,
+                ));
+              }
+            },
+            child: Text(
+              willHide ? 'Ocultar' : 'Mostrar',
+              style: TextStyle(
+                color: willHide ? Colors.orange : cs.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -92,19 +149,22 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    final catalogoCompleto = etsProvider.catalogoCompleto;
-    final totalExamenes = catalogoCompleto.length;
-    final totalISC = catalogoCompleto.where((e) => e.carrera == 'ISC').length;
-    final totalLCD = catalogoCompleto.where((e) => e.carrera == 'LCD').length;
-    final totalIIA = catalogoCompleto.where((e) => e.carrera == 'IIA').length;
+    final adminCatalogo = etsProvider.adminCatalogo;
+    final totalExamenes = adminCatalogo.length;
+    final totalISC = adminCatalogo.where((e) => e.carrera == 'ISC').length;
+    final totalLCD = adminCatalogo.where((e) => e.carrera == 'LCD').length;
+    final totalIIA = adminCatalogo.where((e) => e.carrera == 'IIA').length;
 
-    final examenesMostrados = catalogoCompleto.where((exam) {
+    final examenesMostrados = adminCatalogo.where((exam) {
       final coincideCarrera =
           _selectedCareer == 'Todas' || exam.carrera == _selectedCareer;
-      final materiaLimpia =
-          _quitarAcentos(exam.materia.toLowerCase());
+      final materiaLimpia = _quitarAcentos(exam.materia.toLowerCase());
       final queryLimpia = _quitarAcentos(_searchQuery.toLowerCase());
-      return coincideCarrera && materiaLimpia.contains(queryLimpia);
+      final coincideTexto = materiaLimpia.contains(queryLimpia);
+      final coincideVisibilidad = _visibilityFilter == 'Todos' ||
+          (_visibilityFilter == 'Visibles' && exam.visible) ||
+          (_visibilityFilter == 'Ocultos' && !exam.visible);
+      return coincideCarrera && coincideTexto && coincideVisibilidad;
     }).toList();
 
     return Scaffold(
@@ -173,46 +233,57 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildStatCard(
-                      context,
-                      'Total',
-                      totalExamenes,
-                      cs.primary,
-                      cs.primaryContainer,
-                      'Todas',
-                      cs,
+                      context, 'Total', totalExamenes,
+                      cs.primary, cs.primaryContainer, 'Todas', cs,
                     ),
                     _buildStatCard(
-                      context,
-                      'ISC',
-                      totalISC,
-                      cs.secondary,
-                      cs.secondaryContainer,
-                      'ISC',
-                      cs,
+                      context, 'ISC', totalISC,
+                      cs.secondary, cs.secondaryContainer, 'ISC', cs,
                     ),
                     _buildStatCard(
-                      context,
-                      'LCD',
-                      totalLCD,
-                      cs.tertiary,
-                      cs.tertiaryContainer,
-                      'LCD',
-                      cs,
+                      context, 'LCD', totalLCD,
+                      cs.tertiary, cs.tertiaryContainer, 'LCD', cs,
                     ),
                     _buildStatCard(
-                      context,
-                      'IIA',
-                      totalIIA,
-                      cs.outline,
-                      cs.surfaceContainerHighest,
-                      'IIA',
-                      cs,
+                      context, 'IIA', totalIIA,
+                      cs.outline, cs.surfaceContainerHighest, 'IIA', cs,
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+
+              // ── Filtro de visibilidad ──────────────────────────────────
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['Todos', 'Visibles', 'Ocultos'].map((filter) {
+                    final isSelected = _visibilityFilter == filter;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(filter),
+                        selected: isSelected,
+                        onSelected: (_) =>
+                            setState(() => _visibilityFilter = filter),
+                        selectedColor: cs.primaryContainer,
+                        checkmarkColor: cs.primary,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? cs.onPrimaryContainer
+                              : cs.onSurface,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              const SizedBox(height: 10),
 
               // ── Buscador ───────────────────────────────────────────────
               TextField(
@@ -291,132 +362,187 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                                     begin: const Offset(0, 0.12),
                                     end: Offset.zero,
                                   ).animate(anim),
-                                  child: Card(
-                                    elevation: 0,
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(14),
-                                      side: BorderSide(
-                                        color: cs.outlineVariant
-                                            .withValues(alpha: 0.4),
-                                      ),
-                                    ),
-                                    color: cs.surface.withValues(alpha: 0.85),
-                                    child: ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 4),
-                                      leading: Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: cs.primaryContainer,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        child: Icon(
-                                          Icons.menu_book_rounded,
-                                          color: cs.onPrimaryContainer,
-                                          size: 20,
+                                  child: Opacity(
+                                    opacity: exam.visible ? 1.0 : 0.5,
+                                    child: Card(
+                                      elevation: 0,
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                        side: BorderSide(
+                                          color: cs.outlineVariant
+                                              .withValues(alpha: 0.4),
                                         ),
                                       ),
-                                      title: Text(
-                                        exam.materia,
-                                        style: tt.titleSmall?.copyWith(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      subtitle: Text(
-                                        '${exam.carrera} · Sem ${exam.semestre} · ${exam.fecha}',
-                                        style: tt.bodySmall?.copyWith(
-                                          color: cs.onSurface
-                                              .withValues(alpha: 0.55),
-                                        ),
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          _ScaleButton(
-                                            icon: Icons.edit_rounded,
-                                            color: cs.primary,
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      EditExamPage(
-                                                          exam: exam),
-                                                ),
-                                              );
-                                            },
+                                      color: cs.surface.withValues(alpha: 0.85),
+                                      child: ListTile(
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 4),
+                                        leading: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: cs.primaryContainer,
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
-                                          _ScaleButton(
-                                            icon: Icons.delete_rounded,
-                                            color: cs.error,
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder: (ctx) =>
-                                                    AlertDialog(
-                                                  title: const Text(
-                                                      'Confirmar eliminación'),
-                                                  content: Text(
-                                                    '¿Eliminar el ETS de ${exam.materia}?',
+                                          child: Icon(
+                                            Icons.menu_book_rounded,
+                                            color: cs.onPrimaryContainer,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        title: Row(
+                                          children: [
+                                            if (!exam.visible) ...[
+                                              const Icon(
+                                                Icons.visibility_off,
+                                                size: 14,
+                                                color: Colors.grey,
+                                              ),
+                                              const SizedBox(width: 4),
+                                            ],
+                                            Expanded(
+                                              child: Text(
+                                                exam.materia,
+                                                style: tt.titleSmall?.copyWith(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '${exam.carrera} · Sem ${exam.semestre} · ${exam.fecha}',
+                                              style: tt.bodySmall?.copyWith(
+                                                color: cs.onSurface
+                                                    .withValues(alpha: 0.55),
+                                              ),
+                                            ),
+                                            if (!exam.visible)
+                                              const Text(
+                                                '(Oculto)',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            _ScaleButton(
+                                              icon: exam.visible
+                                                  ? Icons.visibility
+                                                  : Icons.visibility_off,
+                                              color: exam.visible
+                                                  ? cs.primary
+                                                  : Colors.grey,
+                                              tooltip: exam.visible
+                                                  ? 'Ocultar examen'
+                                                  : 'Mostrar examen',
+                                              onPressed: () =>
+                                                  _confirmToggleVisibility(
+                                                      context,
+                                                      exam,
+                                                      etsProvider,
+                                                      cs),
+                                            ),
+                                            _ScaleButton(
+                                              icon: Icons.edit_rounded,
+                                              color: cs.primary,
+                                              onPressed: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        EditExamPage(
+                                                            exam: exam),
                                                   ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              ctx),
-                                                      child: const Text(
-                                                          'Cancelar'),
+                                                );
+                                              },
+                                            ),
+                                            _ScaleButton(
+                                              icon: Icons.delete_rounded,
+                                              color: cs.error,
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (ctx) =>
+                                                      AlertDialog(
+                                                    title: const Text(
+                                                        'Confirmar eliminación'),
+                                                    content: Text(
+                                                      '¿Eliminar el ETS de ${exam.materia}?',
                                                     ),
-                                                    TextButton(
-                                                      onPressed: () async {
-                                                        Navigator.pop(ctx);
-                                                        try {
-                                                          await etsProvider
-                                                              .borrarExamenDelCatalogo(
-                                                                  exam.materia);
-                                                          if (!context.mounted) {
-                                                            return;
-                                                          }
-                                                          ScaffoldMessenger.of(
-                                                            context,
-                                                          ).showSnackBar(
-                                                            const SnackBar(
-                                                              content: Text(
-                                                                  'Examen eliminado del catálogo'),
-                                                            ),
-                                                          );
-                                                        } catch (e) {
-                                                          if (!context.mounted) {
-                                                            return;
-                                                          }
-                                                          ScaffoldMessenger.of(
-                                                            context,
-                                                          ).showSnackBar(
-                                                            SnackBar(
-                                                              content: Text(
-                                                                e.toString().replaceFirst('Exception: ', ''),
-                                                              ),
-                                                              backgroundColor: Colors.red,
-                                                            ),
-                                                          );
-                                                        }
-                                                      },
-                                                      child: Text(
-                                                        'Eliminar',
-                                                        style: TextStyle(
-                                                            color: cs.error),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(ctx),
+                                                        child: const Text(
+                                                            'Cancelar'),
                                                       ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
+                                                      TextButton(
+                                                        onPressed: () async {
+                                                          Navigator.pop(ctx);
+                                                          try {
+                                                            await etsProvider
+                                                                .borrarExamenDelCatalogo(
+                                                                    exam.materia);
+                                                            if (!context
+                                                                .mounted) {
+                                                              return;
+                                                            }
+                                                            ScaffoldMessenger
+                                                                .of(context)
+                                                                .showSnackBar(
+                                                              const SnackBar(
+                                                                content: Text(
+                                                                    'Examen eliminado del catálogo'),
+                                                              ),
+                                                            );
+                                                          } catch (e) {
+                                                            if (!context
+                                                                .mounted) {
+                                                              return;
+                                                            }
+                                                            ScaffoldMessenger
+                                                                .of(context)
+                                                                .showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(
+                                                                  e.toString().replaceFirst(
+                                                                      'Exception: ',
+                                                                      ''),
+                                                                ),
+                                                                backgroundColor:
+                                                                    Colors.red,
+                                                              ),
+                                                            );
+                                                          }
+                                                        },
+                                                        child: Text(
+                                                          'Eliminar',
+                                                          style: TextStyle(
+                                                              color: cs.error),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -454,8 +580,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   }
 
   // ── Tarjeta de estadística ─────────────────────────────────────────────────
-  // Shadow + border viven en el mismo AnimatedContainer → sin clipping.
-  // Seleccionada: siempre morado (primary). No seleccionada: neutro con tinte.
 
   Widget _buildStatCard(
     BuildContext context,
@@ -537,10 +661,12 @@ class _ScaleButton extends StatefulWidget {
     required this.icon,
     required this.color,
     required this.onPressed,
+    this.tooltip,
   });
   final IconData icon;
   final Color color;
   final VoidCallback onPressed;
+  final String? tooltip;
 
   @override
   State<_ScaleButton> createState() => _ScaleButtonState();
@@ -551,7 +677,7 @@ class _ScaleButtonState extends State<_ScaleButton> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final button = GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
@@ -567,5 +693,10 @@ class _ScaleButtonState extends State<_ScaleButton> {
         ),
       ),
     );
+
+    if (widget.tooltip != null) {
+      return Tooltip(message: widget.tooltip!, child: button);
+    }
+    return button;
   }
 }

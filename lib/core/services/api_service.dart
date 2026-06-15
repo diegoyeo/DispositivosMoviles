@@ -113,6 +113,30 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> patch(
+    String endpoint,
+    Map<String, dynamic> body, {
+    bool requiresAuth = false,
+  }) async {
+    try {
+      final headers = await _getHeaders(requiresAuth: requiresAuth);
+      final response = await http
+          .patch(
+            Uri.parse(ApiConfig.baseUrl + endpoint),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(ApiConfig.timeout);
+      return _handleResponse(response);
+    } on TimeoutException {
+      throw Exception('Tiempo de espera agotado');
+    } on SocketException {
+      throw Exception(
+        'No se puede conectar al servidor. Verifica tu conexión',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> delete(
     String endpoint, {
     bool requiresAuth = false,

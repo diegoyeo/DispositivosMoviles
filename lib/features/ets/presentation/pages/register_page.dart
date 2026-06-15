@@ -81,7 +81,7 @@ class _RegisterPageState extends State<RegisterPage>
     if (exito) {
       await NotificationService().showImmediateNotification(
         id: 0,
-        title: '¡Bienvenido a BRUZZY!',
+        title: '¡Bienvenido a MOVIDA!',
         body: 'Tu cuenta fue creada exitosamente.',
       );
       if (!mounted) return;

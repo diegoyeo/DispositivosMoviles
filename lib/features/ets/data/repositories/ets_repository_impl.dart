@@ -87,6 +87,22 @@ class EtsRepositoryImpl {
     );
   }
 
+  Future<List<EtsExam>> getAllExams({
+    String? carrera,
+    String? semestre,
+    String? materia,
+  }) async {
+    return await remoteDataSource.getAllExams(
+      carrera: carrera,
+      semestre: semestre,
+      materia: materia,
+    );
+  }
+
+  Future<EtsExam> toggleVisibility(int id, bool visible) async {
+    return await remoteDataSource.toggleVisibility(id, visible);
+  }
+
   Future<Map<String, dynamic>> getStats() async {
     return await remoteDataSource.getStats();
   }

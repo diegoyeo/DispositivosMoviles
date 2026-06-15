@@ -8,6 +8,9 @@ class EtsProvider extends ChangeNotifier {
   List<EtsExam> misExamenesGuardados = [];
   List<EtsExam> get catalogoCompleto => _todosLosExamenes;
 
+  List<EtsExam> _adminExamenes = [];
+  List<EtsExam> get adminCatalogo => _adminExamenes;
+
   Future<void> guardarExamInterno(String correo, String materia) async {
     final exam = _todosLosExamenes.firstWhere(
       (e) => e.materia == materia,
@@ -138,6 +141,23 @@ class EtsProvider extends ChangeNotifier {
       _todosLosExamenes = [];
     }
     aplicarFiltros();
+  }
+
+  Future<void> loadAllExams() async {
+    try {
+      _adminExamenes = await repository.getAllExams();
+      _adminExamenes.sort(
+        (a, b) => _normalizar(a.materia).compareTo(_normalizar(b.materia)),
+      );
+    } catch (_) {
+      _adminExamenes = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> toggleVisibility(int examId, bool visible) async {
+    await repository.toggleVisibility(examId, visible);
+    await loadAllExams();
   }
 
   void buscarPorMateria(String texto) {

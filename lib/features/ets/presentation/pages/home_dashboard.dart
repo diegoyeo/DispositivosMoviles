@@ -285,7 +285,7 @@ class _HomeDashboardState extends State<HomeDashboard>
         Text(
           esInvitado
               ? 'Explora los exámenes ETS disponibles'
-              : 'Alumno ESCOM · BRUZZY',
+              : 'Alumno ESCOM · MOVIDA',
           style: tt.bodyMedium?.copyWith(
             color: onColor.withValues(alpha: esInvitado ? 0.65 : 0.85),
           ),
@@ -300,25 +300,11 @@ class _HomeDashboardState extends State<HomeDashboard>
         animation: _floatCtrl,
         builder: (_, child) =>
             Transform.translate(offset: Offset(0, _float.value), child: child),
-        child: Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: cs.primaryContainer,
-            boxShadow: [
-              BoxShadow(
-                color: cs.primary.withValues(alpha: 0.28),
-                blurRadius: 28,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.school_rounded,
-            size: 54,
-            color: cs.onPrimaryContainer,
-          ),
+        child: Image.asset(
+          'assets/images/logo.png',
+          width: 140,
+          height: 140,
+          fit: BoxFit.contain,
         ),
       ),
     );

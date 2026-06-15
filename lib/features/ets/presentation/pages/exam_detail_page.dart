@@ -221,6 +221,8 @@ class _ExamDetailPageState extends State<ExamDetailPage>
       );
     }
 
+    if (!widget.exam.visible) return const SizedBox.shrink();
+
     return _ActionButton(
       icon: Icons.bookmark_add_rounded,
       label: 'Guardar en mi calendario',
@@ -298,6 +300,34 @@ class _ExamDetailPageState extends State<ExamDetailPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Banner examen oculto ───────────────────────────────────
+              if (yaEstaGuardado && !widget.exam.visible)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade400),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.amber.shade800),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Este examen ya no está disponible en la oferta actual',
+                          style: TextStyle(
+                            color: Colors.amber.shade900,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // ── Tarjeta glassmorphism ──────────────────────────────────
               ClipRRect(
                 borderRadius: BorderRadius.circular(22),

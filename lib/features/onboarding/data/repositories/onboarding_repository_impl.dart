@@ -4,7 +4,7 @@ import '../../domain/repositories/onboarding_repository.dart';
 /// Implementación concreta del repositorio usando SharedPreferences.
 /// La clave `_kSeenKey` persiste entre sesiones en el dispositivo.
 class OnboardingRepositoryImpl implements OnboardingRepository {
-  static const String _kSeenKey = 'bruzzy_onboarding_seen';
+  static const String _kSeenKey = 'movida_onboarding_seen';
 
   @override
   Future<bool> hasSeenOnboarding() async {

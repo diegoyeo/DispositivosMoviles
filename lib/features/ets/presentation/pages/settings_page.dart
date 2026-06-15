@@ -476,7 +476,7 @@ class _SettingsPageState extends State<SettingsPage>
               _arrowTile(
                 icon: Icons.info_outline_rounded,
                 label: 'Versión de la app',
-                subtitle: 'v1.0.0 — BRUZZY ETS ESCOM',
+                subtitle: 'v1.0.0 — MOVIDA ETS ESCOM',
                 cs: cs,
               ),
             ),
@@ -705,7 +705,7 @@ class _SettingsPageState extends State<SettingsPage>
               _arrowTile(
                 icon: Icons.info_outline_rounded,
                 label: 'Versión de la app',
-                subtitle: 'v1.0.0 — BRUZZY ETS ESCOM (Admin)',
+                subtitle: 'v1.0.0 — MOVIDA ETS ESCOM (Admin)',
                 cs: cs,
               ),
             ),

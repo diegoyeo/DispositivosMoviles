@@ -110,6 +110,35 @@ class EtsRemoteDataSource {
     await _api.delete('${ApiConfig.exams}/$id', requiresAuth: true);
   }
 
+  Future<List<EtsExam>> getAllExams({
+    String? carrera,
+    String? semestre,
+    String? materia,
+  }) async {
+    var endpoint = ApiConfig.examsAdmin;
+    final params = <String>[];
+    if (carrera != null && carrera.isNotEmpty) params.add('carrera=$carrera');
+    if (semestre != null && semestre.isNotEmpty) params.add('semestre=$semestre');
+    if (materia != null && materia.isNotEmpty) {
+      params.add('materia=${Uri.encodeComponent(materia)}');
+    }
+    if (params.isNotEmpty) endpoint += '?${params.join('&')}';
+
+    final res = await _api.get(endpoint, requiresAuth: true);
+    return (res['data'] as List<dynamic>)
+        .map((e) => EtsModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<EtsExam> toggleVisibility(int id, bool visible) async {
+    final res = await _api.patch(
+      '${ApiConfig.exams}/$id/visibility',
+      {'visible': visible ? 1 : 0},
+      requiresAuth: true,
+    );
+    return EtsModel.fromJson(res['data'] as Map<String, dynamic>);
+  }
+
   Future<Map<String, dynamic>> getStats() async {
     final res = await _api.get(ApiConfig.examStats, requiresAuth: true);
     return res['data'] as Map<String, dynamic>;

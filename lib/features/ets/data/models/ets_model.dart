@@ -10,6 +10,7 @@ class EtsModel extends EtsExam {
     required super.profesor,
     required super.carrera,
     required super.semestre,
+    super.visible = true,
   });
 
   factory EtsModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class EtsModel extends EtsExam {
       profesor: json['profesor'] as String? ?? '',
       carrera: json['carrera'] as String? ?? '',
       semestre: json['semestre'] as int? ?? 0,
+      visible: (json['visible'] as int? ?? 1) == 1,
     );
   }
 
@@ -34,5 +36,6 @@ class EtsModel extends EtsExam {
         'profesor': profesor,
         'carrera': carrera,
         'semestre': semestre,
+        'visible': visible ? 1 : 0,
       };
 }

@@ -179,29 +179,15 @@ class _LoginPageState extends State<LoginPage>
                   _animLogo,
                   Column(
                     children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cs.primaryContainer,
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.25),
-                              blurRadius: 20,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.school_rounded,
-                          size: 44,
-                          color: cs.onPrimaryContainer,
-                        ),
+                      Image.asset(
+                        'assets/images/logo.png',
+                        width: 160,
+                        height: 160,
+                        fit: BoxFit.contain,
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'BRUZZY',
+                        'MOVIDA',
                         style: tt.headlineLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: cs.onSurface,

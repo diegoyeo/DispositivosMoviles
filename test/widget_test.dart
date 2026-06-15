@@ -32,7 +32,6 @@ void main() {
     await tester.pumpWidget(_buildApp());
 
     // El splash muestra el ícono y el nombre de la app
-    expect(find.byIcon(Icons.school_rounded), findsOneWidget);
-    expect(find.text('BRUZZY'), findsOneWidget);
+    expect(find.text('MOVIDA'), findsOneWidget);
   });
 }

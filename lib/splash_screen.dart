@@ -16,7 +16,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   // Misma clave que usa OnboardingRepositoryImpl
-  static const String _kOnboardingKey = 'bruzzy_onboarding_seen';
+  static const String _kOnboardingKey = 'movida_onboarding_seen';
 
   late final AnimationController _ctrl;
   late final Animation<double> _logoScale;
@@ -142,25 +142,11 @@ class _SplashScreenState extends State<SplashScreen>
                     opacity: _logoOpacity.value,
                     child: Transform.scale(
                       scale: _logoScale.value,
-                      child: Container(
-                        width: 104,
-                        height: 104,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cs.onPrimary.withValues(alpha: 0.15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.shadow.withValues(alpha: 0.2),
-                              blurRadius: 24,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.school_rounded,
-                          size: 56,
-                          color: cs.onPrimary,
-                        ),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 220,
+                        height: 220,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -169,7 +155,7 @@ class _SplashScreenState extends State<SplashScreen>
                   Opacity(
                     opacity: _nameOpacity.value,
                     child: Text(
-                      'BRUZZY',
+                      'MOVIDA',
                       style: tt.displaySmall?.copyWith(
                         color: cs.onPrimary,
                         fontWeight: FontWeight.bold,

@@ -7,6 +7,7 @@ class EtsExam {
   final String profesor;
   final String carrera;
   final int semestre;
+  final bool visible;
 
   EtsExam({
     this.id,
@@ -17,5 +18,6 @@ class EtsExam {
     required this.profesor,
     required this.carrera,
     required this.semestre,
+    this.visible = true,
   });
 }

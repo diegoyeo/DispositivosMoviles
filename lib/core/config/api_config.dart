@@ -5,6 +5,7 @@ class ApiConfig {
   static const String login = '/auth/login';
   static const String register = '/auth/register';
   static const String exams = '/exams';
+  static const String examsAdmin = '/exams/admin';
   static const String examStats = '/exams/stats';
   static const String saved = '/saved';
   static const String profile = '/user/profile';
