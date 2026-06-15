@@ -45,7 +45,9 @@ class _SalonesPageState extends State<SalonesPage> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
       ),
-      body: Consumer<CatalogosProvider>(
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      body: SafeArea(
+        child: Consumer<CatalogosProvider>(
         builder: (context, provider, _) {
           if (provider.loading) {
             return const Center(child: CircularProgressIndicator(color: Colors.deepPurple));
@@ -63,7 +65,10 @@ class _SalonesPageState extends State<SalonesPage> {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 16, right: 16, top: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 80,
+            ),
             itemCount: provider.salones.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
@@ -89,7 +94,7 @@ class _SalonesPageState extends State<SalonesPage> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        onPressed: () => _confirmDelete(context, salon),
+                        onPressed: () => _confirmDelete(salon),
                       ),
                     ],
                   ),
@@ -98,6 +103,7 @@ class _SalonesPageState extends State<SalonesPage> {
             },
           );
         },
+      ),
       ),
     );
   }
@@ -111,61 +117,84 @@ class _SalonesPageState extends State<SalonesPage> {
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24, right: 24, top: 24,
-            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+        final bottomInset = MediaQuery.of(sheetCtx).viewInsets.bottom;
+        final bottomPadding = MediaQuery.of(sheetCtx).padding.bottom;
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(sheetCtx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: Form(
-            key: formKey,
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + bottomPadding + 24),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  existing == null ? 'Nuevo salón' : 'Editar salón',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: nombreCtrl,
-                  decoration: const InputDecoration(labelText: 'Nombre (ej. 3002)', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: edificioCtrl,
-                  decoration: const InputDecoration(labelText: 'Edificio (ej. Edificio 3)', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: capacidadCtrl,
-                  decoration: const InputDecoration(labelText: 'Capacidad (opcional)', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: Colors.deepPurple),
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      Navigator.of(sheetCtx).pop();
-                      final cap = capacidadCtrl.text.trim().isNotEmpty ? int.tryParse(capacidadCtrl.text.trim()) : null;
-                      final provider = ctx.read<CatalogosProvider>();
-                      final ok = existing == null
-                          ? await provider.addSalon(nombre: nombreCtrl.text.trim(), edificio: edificioCtrl.text.trim(), capacidad: cap)
-                          : await provider.updateSalon(existing.id, nombre: nombreCtrl.text.trim(), edificio: edificioCtrl.text.trim(), capacidad: cap);
-                      if (!ctx.mounted) return;
-                      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                        content: Text(ok ? (existing == null ? 'Salón creado' : 'Salón actualizado') : (provider.lastError ?? 'Error')),
-                        backgroundColor: ok ? Colors.green : Colors.red,
-                      ));
-                    },
-                    child: Text(existing == null ? 'Crear' : 'Guardar'),
+                Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        existing == null ? 'Nuevo salón' : 'Editar salón',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: nombreCtrl,
+                        decoration: const InputDecoration(labelText: 'Nombre (ej. 3002)', border: OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: edificioCtrl,
+                        decoration: const InputDecoration(labelText: 'Edificio (ej. Edificio 3)', border: OutlineInputBorder()),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: capacidadCtrl,
+                        decoration: const InputDecoration(labelText: 'Capacidad (opcional)', border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.deepPurple),
+                          onPressed: () async {
+                            if (!formKey.currentState!.validate()) return;
+                            Navigator.of(sheetCtx).pop();
+                            final cap = capacidadCtrl.text.trim().isNotEmpty ? int.tryParse(capacidadCtrl.text.trim()) : null;
+                            final provider = ctx.read<CatalogosProvider>();
+                            final ok = existing == null
+                                ? await provider.addSalon(nombre: nombreCtrl.text.trim(), edificio: edificioCtrl.text.trim(), capacidad: cap)
+                                : await provider.updateSalon(existing.id, nombre: nombreCtrl.text.trim(), edificio: edificioCtrl.text.trim(), capacidad: cap);
+                            if (!ctx.mounted) return;
+                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                              content: Text(ok ? (existing == null ? 'Salón creado' : 'Salón actualizado') : (provider.lastError ?? 'Error')),
+                              backgroundColor: ok ? Colors.green : Colors.red,
+                            ));
+                          },
+                          child: Text(existing == null ? 'Crear' : 'Guardar'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -176,9 +205,9 @@ class _SalonesPageState extends State<SalonesPage> {
     );
   }
 
-  void _confirmDelete(BuildContext ctx, SalonModel salon) {
+  void _confirmDelete(SalonModel salon) {
     showDialog(
-      context: ctx,
+      context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Eliminar salón'),
         content: Text('¿Eliminar "${salon.nombre}"? Esta acción no se puede deshacer.'),
@@ -188,13 +217,21 @@ class _SalonesPageState extends State<SalonesPage> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.of(dialogCtx).pop();
-              final provider = ctx.read<CatalogosProvider>();
+              final provider = context.read<CatalogosProvider>();
               final ok = await provider.deleteSalon(salon.id);
-              if (!ctx.mounted) return;
-              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                content: Text(ok ? 'Salón eliminado' : (provider.lastError ?? 'Error al eliminar')),
-                backgroundColor: ok ? Colors.green : Colors.red,
-              ));
+              if (!mounted) return;
+              if (!ok) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(provider.error ?? 'No puedes eliminar un salón que tiene exámenes registrados'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
+                ));
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Salón eliminado'),
+                  backgroundColor: Colors.green,
+                ));
+              }
             },
             child: const Text('Eliminar'),
           ),

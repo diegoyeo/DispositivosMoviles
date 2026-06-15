@@ -44,7 +44,9 @@ class _CarrerasPageState extends State<CarrerasPage> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
       ),
-      body: Consumer<CatalogosProvider>(
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      body: SafeArea(
+        child: Consumer<CatalogosProvider>(
         builder: (context, provider, _) {
           if (provider.loading) {
             return const Center(child: CircularProgressIndicator(color: Colors.deepPurple));
@@ -62,7 +64,10 @@ class _CarrerasPageState extends State<CarrerasPage> {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 16, right: 16, top: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 80,
+            ),
             itemCount: provider.carreras.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
@@ -85,7 +90,7 @@ class _CarrerasPageState extends State<CarrerasPage> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        onPressed: () => _confirmDelete(context, carrera),
+                        onPressed: () => _confirmDelete(carrera),
                       ),
                     ],
                   ),
@@ -94,6 +99,7 @@ class _CarrerasPageState extends State<CarrerasPage> {
             },
           );
         },
+      ),
       ),
     );
   }
@@ -106,55 +112,78 @@ class _CarrerasPageState extends State<CarrerasPage> {
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24, right: 24, top: 24,
-            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+        final bottomInset = MediaQuery.of(sheetCtx).viewInsets.bottom;
+        final bottomPadding = MediaQuery.of(sheetCtx).padding.bottom;
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(sheetCtx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: Form(
-            key: formKey,
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + bottomPadding + 24),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  existing == null ? 'Nueva carrera' : 'Editar carrera',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: nombreCtrl,
-                  decoration: const InputDecoration(labelText: 'Nombre (ej. ISC)', border: OutlineInputBorder()),
-                  textCapitalization: TextCapitalization.characters,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: Colors.deepPurple),
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      Navigator.of(sheetCtx).pop();
-                      final provider = ctx.read<CatalogosProvider>();
-                      final ok = existing == null
-                          ? await provider.addCarrera(nombre: nombreCtrl.text.trim(), descripcion: descCtrl.text.trim())
-                          : await provider.updateCarrera(existing.id, nombre: nombreCtrl.text.trim(), descripcion: descCtrl.text.trim());
-                      if (!ctx.mounted) return;
-                      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                        content: Text(ok ? (existing == null ? 'Carrera creada' : 'Carrera actualizada') : (provider.lastError ?? 'Error')),
-                        backgroundColor: ok ? Colors.green : Colors.red,
-                      ));
-                    },
-                    child: Text(existing == null ? 'Crear' : 'Guardar'),
+                Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        existing == null ? 'Nueva carrera' : 'Editar carrera',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: nombreCtrl,
+                        decoration: const InputDecoration(labelText: 'Nombre (ej. ISC)', border: OutlineInputBorder()),
+                        textCapitalization: TextCapitalization.characters,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: descCtrl,
+                        decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.deepPurple),
+                          onPressed: () async {
+                            if (!formKey.currentState!.validate()) return;
+                            Navigator.of(sheetCtx).pop();
+                            final provider = ctx.read<CatalogosProvider>();
+                            final ok = existing == null
+                                ? await provider.addCarrera(nombre: nombreCtrl.text.trim(), descripcion: descCtrl.text.trim())
+                                : await provider.updateCarrera(existing.id, nombre: nombreCtrl.text.trim(), descripcion: descCtrl.text.trim());
+                            if (!ctx.mounted) return;
+                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                              content: Text(ok ? (existing == null ? 'Carrera creada' : 'Carrera actualizada') : (provider.lastError ?? 'Error')),
+                              backgroundColor: ok ? Colors.green : Colors.red,
+                            ));
+                          },
+                          child: Text(existing == null ? 'Crear' : 'Guardar'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -165,9 +194,9 @@ class _CarrerasPageState extends State<CarrerasPage> {
     );
   }
 
-  void _confirmDelete(BuildContext ctx, CarreraModel carrera) {
+  void _confirmDelete(CarreraModel carrera) {
     showDialog(
-      context: ctx,
+      context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Eliminar carrera'),
         content: Text('¿Eliminar "${carrera.nombre}"? Esta acción no se puede deshacer.'),
@@ -177,13 +206,21 @@ class _CarrerasPageState extends State<CarrerasPage> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.of(dialogCtx).pop();
-              final provider = ctx.read<CatalogosProvider>();
+              final provider = context.read<CatalogosProvider>();
               final ok = await provider.deleteCarrera(carrera.id);
-              if (!ctx.mounted) return;
-              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                content: Text(ok ? 'Carrera eliminada' : (provider.lastError ?? 'Error al eliminar')),
-                backgroundColor: ok ? Colors.green : Colors.red,
-              ));
+              if (!mounted) return;
+              if (!ok) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(provider.error ?? 'No puedes eliminar una carrera que tiene exámenes registrados'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
+                ));
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Carrera eliminada'),
+                  backgroundColor: Colors.green,
+                ));
+              }
             },
             child: const Text('Eliminar'),
           ),

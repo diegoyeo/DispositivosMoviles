@@ -11,6 +11,7 @@ class CatalogosProvider extends ChangeNotifier {
   List<SalonModel> _salones = [];
   bool _loading = false;
   String? lastError;
+  String? error;
 
   List<CarreraModel> get carreras => _carreras;
   List<SalonModel> get salones => _salones;
@@ -65,9 +66,11 @@ class CatalogosProvider extends ChangeNotifier {
       await _api.delete('${ApiConfig.carreras}/$id', requiresAuth: true);
       await loadCarreras();
       lastError = null;
+      error = null;
       return true;
     } catch (e) {
-      lastError = e.toString().replaceFirst('Exception: ', '');
+      error = e.toString().replaceFirst('Exception: ', '');
+      lastError = error;
       return false;
     } finally {
       _loading = false; notifyListeners();
@@ -123,9 +126,11 @@ class CatalogosProvider extends ChangeNotifier {
       await _api.delete('${ApiConfig.salones}/$id', requiresAuth: true);
       await loadSalones();
       lastError = null;
+      error = null;
       return true;
     } catch (e) {
-      lastError = e.toString().replaceFirst('Exception: ', '');
+      error = e.toString().replaceFirst('Exception: ', '');
+      lastError = error;
       return false;
     } finally {
       _loading = false; notifyListeners();
