@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/providers/preferences_provider.dart';
+import 'package:dispositivos_moviles/features/catalogos/providers/catalogos_provider.dart';
 import '../providers/ets_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/app_drawers.dart';
@@ -25,6 +26,11 @@ class _EtsHomePageState extends State<EtsHomePage>
   String _carreraFiltro = 'Todas';
   String _semestreFiltro = 'Todos';
 
+  static const List<String> _semestres = [
+    'Todos', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+  ];
+  static const List<String> _carreraFallback = ['ISC', 'LCD', 'IIA'];
+
   @override
   void initState() {
     super.initState();
@@ -35,11 +41,13 @@ class _EtsHomePageState extends State<EtsHomePage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      if (auth.currentRole == null) return; // invitado: sin preferencias
 
-      final pref =
-          Provider.of<PreferencesProvider>(context, listen: false);
+      Provider.of<CatalogosProvider>(context, listen: false).loadCarreras();
+
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.currentRole == null) return;
+
+      final pref = Provider.of<PreferencesProvider>(context, listen: false);
       final ets = Provider.of<EtsProvider>(context, listen: false);
 
       final carrera = pref.defaultCarrera;
@@ -62,6 +70,18 @@ class _EtsHomePageState extends State<EtsHomePage>
     super.dispose();
   }
 
+  void _selectCarrera(String value, EtsProvider ets) {
+    setState(() => _carreraFiltro = value);
+    ets.filtrarPorCarrera(value == 'Todas' ? null : value);
+    _listCtrl.forward(from: 0);
+  }
+
+  void _selectSemestre(String value, EtsProvider ets) {
+    setState(() => _semestreFiltro = value);
+    ets.filtrarPorSemestre(value == 'Todos' ? null : value);
+    _listCtrl.forward(from: 0);
+  }
+
   Animation<double> _itemAnim(int index, int total) {
     final start = (index / (total + 1)).clamp(0.0, 0.85);
     final end = (start + 0.4).clamp(0.0, 1.0);
@@ -74,10 +94,16 @@ class _EtsHomePageState extends State<EtsHomePage>
   @override
   Widget build(BuildContext context) {
     final etsProvider = Provider.of<EtsProvider>(context);
+    final catalogos = Provider.of<CatalogosProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final esInvitado = auth.currentRole == null;
+
+    final carreraNames = catalogos.carreras.isEmpty
+        ? _carreraFallback
+        : catalogos.carreras.map((c) => c.nombre).toList();
+    final todasCarreras = ['Todas', ...carreraNames];
 
     return Scaffold(
       appBar: AppBar(
@@ -151,126 +177,105 @@ class _EtsHomePageState extends State<EtsHomePage>
 
       body: Column(
         children: [
-          // ── Zona de filtros ──────────────────────────────────────────────
+          // ── Barra de búsqueda ─────────────────────────────────────────────
           Container(
             color: cs.surface,
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: Column(
-              children: [
-                TextField(
-                  onChanged: etsProvider.buscarPorMateria,
-                  decoration: InputDecoration(
-                    labelText: 'Buscar Unidad de Aprendizaje...',
-                    prefixIcon: Icon(Icons.search, color: cs.primary),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: cs.primary, width: 2),
-                    ),
-                  ),
+            child: TextField(
+              onChanged: etsProvider.buscarPorMateria,
+              decoration: InputDecoration(
+                labelText: 'Buscar Unidad de Aprendizaje...',
+                prefixIcon: Icon(Icons.search, color: cs.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    // Dropdown Carrera — controlado por estado local
-                    Expanded(
-                      child: _FilterDropdown<String>(
-                        label: 'Carrera',
-                        value: _carreraFiltro,
-                        items: const ['Todas', 'ISC', 'LCD', 'IIA'],
-                        cs: cs,
-                        onChanged: (v) {
-                          if (v == null) return;
-                          setState(() => _carreraFiltro = v);
-                          etsProvider.filtrarPorCarrera(
-                              v == 'Todas' ? null : v);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    // Dropdown Semestre — controlado por estado local
-                    Expanded(
-                      child: _FilterDropdown<String>(
-                        label: 'Semestre',
-                        value: _semestreFiltro,
-                        items: const [
-                          'Todos',
-                          '1',
-                          '2',
-                          '3',
-                          '4',
-                          '5',
-                          '6',
-                          '7',
-                          '8',
-                        ],
-                        cs: cs,
-                        onChanged: (v) {
-                          if (v == null) return;
-                          setState(() => _semestreFiltro = v);
-                          etsProvider.filtrarPorSemestre(
-                              v == 'Todos' ? null : v);
-                        },
-                      ),
-                    ),
-                  ],
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: cs.primary, width: 2),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Filtros con chips ─────────────────────────────────────────────
+          Container(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _FilterChipRow(
+                  label: 'Carrera',
+                  chips: todasCarreras,
+                  selected: _carreraFiltro,
+                  onChipTap: (v) => _selectCarrera(v, etsProvider),
+                ),
+                const SizedBox(height: 8),
+                _FilterChipRow(
+                  label: 'Semestre',
+                  chips: _semestres,
+                  selected: _semestreFiltro,
+                  onChipTap: (v) => _selectSemestre(v, etsProvider),
                 ),
               ],
             ),
           ),
           Divider(height: 1, color: cs.outlineVariant),
 
-          // ── Lista de resultados ──────────────────────────────────────────
+          // ── Lista de resultados ───────────────────────────────────────────
           Expanded(
-            child: etsProvider.examenesFiltrados.isEmpty
-                ? Center(
-                    child: Text(
-                      'No se encontraron resultados',
-                      style: tt.bodyLarge?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  )
-                : AnimatedBuilder(
-                    animation: _listCtrl,
-                    builder: (context, _) {
-                      final examenes = etsProvider.examenesFiltrados;
-                      return ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: etsProvider.examenesFiltrados.isEmpty
+                  ? Center(
+                      key: const ValueKey('empty'),
+                      child: Text(
+                        'No se encontraron resultados',
+                        style: tt.bodyLarge?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.5),
                         ),
-                        itemCount: examenes.length,
-                        itemBuilder: (context, index) {
-                          final exam = examenes[index];
-                          final anim = _itemAnim(index, examenes.length);
-                          return FadeTransition(
-                            opacity: anim,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.15),
-                                end: Offset.zero,
-                              ).animate(anim),
-                              child: _ExamCard(
-                                exam: exam,
-                                onTap: () {
-                                  Navigator.push(
+                      ),
+                    )
+                  : AnimatedBuilder(
+                      key: ValueKey('${_carreraFiltro}_$_semestreFiltro'),
+                      animation: _listCtrl,
+                      builder: (context, _) {
+                        final examenes = etsProvider.examenesFiltrados;
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          itemCount: examenes.length,
+                          itemBuilder: (context, index) {
+                            final exam = examenes[index];
+                            final anim = _itemAnim(index, examenes.length);
+                            return FadeTransition(
+                              opacity: anim,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.15),
+                                  end: Offset.zero,
+                                ).animate(anim),
+                                child: _ExamCard(
+                                  exam: exam,
+                                  onTap: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
                                           ExamDetailPage(exam: exam),
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),
@@ -278,55 +283,141 @@ class _EtsHomePageState extends State<EtsHomePage>
   }
 }
 
-// ─── Dropdown de filtro con InputDecoration y valor controlado ─────────────────
+// ─── Fila de chips con etiqueta y scroll horizontal ────────────────────────────
 
-class _FilterDropdown<T> extends StatelessWidget {
-  const _FilterDropdown({
+class _FilterChipRow extends StatelessWidget {
+  const _FilterChipRow({
     required this.label,
-    required this.value,
-    required this.items,
-    required this.cs,
-    required this.onChanged,
+    required this.chips,
+    required this.selected,
+    required this.onChipTap,
   });
 
   final String label;
-  final T value;
-  final List<T> items;
-  final ColorScheme cs;
-  final ValueChanged<T?> onChanged;
+  final List<String> chips;
+  final String selected;
+  final ValueChanged<String> onChipTap;
 
   @override
   Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: cs.primary, width: 2),
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 6),
+          child: Text(
+            label,
+            style: tt.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        isDense: true,
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          isDense: true,
-          items: items
-              .map((item) => DropdownMenuItem<T>(
-                    value: item,
-                    child: Text(item.toString()),
-                  ))
-              .toList(),
-          onChanged: onChanged,
+        ScrollConfiguration(
+          behavior:
+              ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: List.generate(chips.length, (i) {
+                return Padding(
+                  padding: EdgeInsets.only(right: i < chips.length - 1 ? 8 : 0),
+                  child: _SelectableChip(
+                    label: chips[i],
+                    selected: chips[i] == selected,
+                    onTap: () => onChipTap(chips[i]),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Chip individual con animación de color y escala al presionar ──────────────
+
+class _SelectableChip extends StatefulWidget {
+  const _SelectableChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_SelectableChip> createState() => _SelectableChipState();
+}
+
+class _SelectableChipState extends State<_SelectableChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? cs.primary
+                : cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: widget.selected
+                ? [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.selected) ...[
+                Icon(Icons.check_rounded, size: 16, color: cs.onPrimary),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.selected ? cs.onPrimary : cs.onSurfaceVariant,
+                  fontWeight: widget.selected
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ─── Tarjeta de examen ────────────────────────────────────────────────────────
+// ─── Tarjeta de examen ─────────────────────────────────────────────────────────
 
 class _ExamCard extends StatelessWidget {
   const _ExamCard({required this.exam, required this.onTap});
