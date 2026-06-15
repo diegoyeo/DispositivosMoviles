@@ -213,7 +213,7 @@ class _SettingsPageState extends State<SettingsPage>
         await BiometricService.clearCredentials();
         if (!mounted) return;
         setState(() => _bioEnabled = false);
-        _showFloatingSnackBar('Huella desactivada');
+        _showFloatingSnackBar('Huella desvinculada');
       }
     }
   }
@@ -378,27 +378,37 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               ),
             ),
-            // Huella digital — solo visible si el dispositivo la soporta
-            if (_bioAvailable) ...[
-              _divider(cs),
-              _animated(
-                idx++,
-                ListTile(
-                  leading: Icon(Icons.fingerprint, color: cs.primary),
-                  title: const Text('Inicio de sesión con huella'),
-                  subtitle: Text(
-                    _bioEnabled ? 'Activado' : 'Desactivado',
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.55),
-                    ),
-                  ),
-                  trailing: Switch(
-                    value: _bioEnabled,
-                    onChanged: _toggleBiometric,
+            // Huella digital — siempre visible, con estado dinámico
+            _divider(cs),
+            _animated(
+              idx++,
+              ListTile(
+                leading: Icon(
+                  Icons.fingerprint,
+                  color: _bioAvailable
+                      ? cs.primary
+                      : cs.onSurface.withValues(alpha: 0.4),
+                ),
+                title: const Text('Inicio de sesión con huella'),
+                subtitle: Text(
+                  !_bioAvailable
+                      ? 'Tu dispositivo no soporta huella digital'
+                      : _bioEnabled
+                          ? 'Vinculada · Toca para desactivar'
+                          : 'Toca para vincular tu huella',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
+                trailing: !_bioAvailable
+                    ? Icon(Icons.block,
+                        color: cs.onSurface.withValues(alpha: 0.4))
+                    : Switch(
+                        value: _bioEnabled,
+                        onChanged: _toggleBiometric,
+                      ),
               ),
-            ],
+            ),
 
             // ── Notificaciones ───────────────────────────────────────────
             _animated(idx++, _sectionHeader('Notificaciones', cs, tt)),
@@ -962,7 +972,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       if (hadBio != null) {
         messenger.showSnackBar(SnackBar(
           content: const Text(
-              'Huella desactivada. Actívala de nuevo en Ajustes'),
+              'Huella desvinculada. Vincúlala de nuevo en Ajustes'),
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1105,7 +1115,7 @@ class _BioConfirmDialogState extends State<_BioConfirmDialog> {
       messenger
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
-          content: const Text('Huella activada correctamente'),
+          content: const Text('Huella vinculada correctamente'),
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

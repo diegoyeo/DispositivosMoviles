@@ -18,15 +18,23 @@ class PreferencesProvider extends ChangeNotifier {
   String? get defaultCarrera => _defaultCarrera;
   String? get defaultSemestre => _defaultSemestre;
 
-  void setDefaultCarrera(String carrera) {
+  void setDefaultCarrera(String? carrera) {
     _defaultCarrera = carrera;
     notifyListeners();
-    _prefs.setString(_keyCarrera, carrera);
+    if (carrera == null) {
+      _prefs.remove(_keyCarrera);
+    } else {
+      _prefs.setString(_keyCarrera, carrera);
+    }
   }
 
-  void setDefaultSemestre(String semestre) {
+  void setDefaultSemestre(String? semestre) {
     _defaultSemestre = semestre;
     notifyListeners();
-    _prefs.setString(_keySemestre, semestre);
+    if (semestre == null) {
+      _prefs.remove(_keySemestre);
+    } else {
+      _prefs.setString(_keySemestre, semestre);
+    }
   }
 }

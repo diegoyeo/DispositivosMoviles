@@ -76,6 +76,26 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (authProvider.currentRole != null) {
+      // Alumno con huella vinculada: forzar re-autenticación biométrica
+      if (authProvider.currentRole == 'alumno') {
+        final bioLinked = await BiometricService.isBiometricLinked();
+        if (bioLinked && mounted) {
+          await Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 500),
+              pageBuilder: (_, animation, _) => FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                ),
+                child: const LoginPage(autoTriggerBiometric: true),
+              ),
+            ),
+          );
+          return;
+        }
+      }
+      if (!mounted) return;
       await Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 500),
@@ -91,14 +111,6 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // Verificar si hay credenciales biométricas guardadas (solo para alumnos)
-    bool showBiometric = false;
-    final bioAvailable = await BiometricService.isAvailable();
-    if (bioAvailable) {
-      final bioCreds = await BiometricService.getCredentials();
-      showBiometric = bioCreds != null;
-    }
-
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool(_kOnboardingKey) ?? false;
 
@@ -112,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen>
             curve: Curves.easeInOut,
           ),
           child: hasSeenOnboarding
-              ? LoginPage(showBiometricOnLoad: showBiometric)
+              ? const LoginPage()
               : const OnboardingPage(),
         ),
       ),

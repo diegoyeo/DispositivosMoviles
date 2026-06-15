@@ -52,6 +52,18 @@ class BiometricService {
     return {'correo': correo, 'password': password};
   }
 
+  static Future<bool> isBiometricLinked() async {
+    try {
+      final enabled = await _storage.read(key: 'bio_enabled');
+      if (enabled != 'true') return false;
+      final correo = await _storage.read(key: 'bio_correo');
+      final password = await _storage.read(key: 'bio_password');
+      return correo != null && password != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> clearCredentials() async {
     await _storage.deleteAll();
   }
