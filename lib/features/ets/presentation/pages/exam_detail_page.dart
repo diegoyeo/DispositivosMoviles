@@ -10,6 +10,7 @@ import '../../domain/entities/ets_exam.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ets_provider.dart';
 import 'login_page.dart';
+import 'map_page.dart';
 
 class ExamDetailPage extends StatefulWidget {
   const ExamDetailPage({super.key, required this.exam});
@@ -406,7 +407,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Text(
-                                  'El salón aún no ha sido asignado. '
+                                  'Salón sin asignar. '
                                   'Se mostrará la ubicación de ESCOM',
                                 ),
                                 behavior: SnackBarBehavior.floating,
@@ -416,9 +417,71 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                               ),
                             );
                           }
-                          await LauncherService.openSalonRoute(
-                            context,
-                            salon,
+
+                          // Capturar referencias antes del await
+                          final messenger = ScaffoldMessenger.of(context);
+                          final navigator = Navigator.of(context);
+
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Obteniendo tu ubicación...'),
+                                ],
+                              ),
+                              duration: const Duration(seconds: 5),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          );
+
+                          final position =
+                              await LauncherService.getCurrentLocation(context);
+
+                          messenger.hideCurrentSnackBar();
+                          if (position == null) return;
+
+                          await navigator.push(
+                            PageRouteBuilder<void>(
+                              transitionDuration:
+                                  const Duration(milliseconds: 400),
+                              reverseTransitionDuration:
+                                  const Duration(milliseconds: 300),
+                              pageBuilder: (ctx, animation, _) => MapPage(
+                                salonNombre: salon,
+                                userLat: position.latitude,
+                                userLon: position.longitude,
+                              ),
+                              transitionsBuilder:
+                                  (ctx, animation, _, child) =>
+                                      SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(1.0, 0.0),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
+                                )),
+                                child: FadeTransition(
+                                  opacity: Tween<double>(
+                                    begin: 0.6,
+                                    end: 1.0,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -433,7 +496,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Se abrirá OpenStreetMap con la ruta a ESCOM',
+                            'Mapa de ruta a ESCOM dentro de la app',
                             style: TextStyle(
                               fontSize: 11,
                               color: cs.onSurfaceVariant,
@@ -455,7 +518,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                                   '${widget.exam.fecha}.\n\n',
                             );
                           } catch (e) {
-                            if (!mounted) return;
+                            if (!context.mounted) return;
                             ErrorHandler.show(context, e);
                           }
                         },

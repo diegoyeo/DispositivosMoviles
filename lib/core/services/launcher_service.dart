@@ -190,6 +190,100 @@ class LauncherService {
     }
   }
 
+  // ── Obtener ubicación actual (centraliza la lógica de permisos GPS) ──────
+
+  static Future<Position?> getCurrentLocation(BuildContext context) async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (context.mounted) {
+        ErrorHandler.show(
+          context,
+          const ApiException(
+            message: 'Activa el GPS de tu dispositivo para ver la ruta',
+            type: ApiErrorType.unknown,
+          ),
+        );
+      }
+      return null;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (context.mounted) {
+          ErrorHandler.show(
+            context,
+            const ApiException(
+              message:
+                  'Permiso de ubicación denegado. Actívalo en Ajustes del sistema',
+              type: ApiErrorType.unknown,
+            ),
+          );
+        }
+        return null;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (context.mounted) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  Icons.location_off,
+                  color: Theme.of(ctx).colorScheme.error,
+                ),
+                const SizedBox(width: 8),
+                const Text('Permiso requerido'),
+              ],
+            ),
+            content: const Text(
+              'El permiso fue denegado permanentemente.\n\n'
+              'Ve a: Ajustes → Apps → MOVIDA → Permisos → Ubicación → Permitir',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Geolocator.openAppSettings();
+                },
+                child: const Text('Ir a Ajustes'),
+              ),
+            ],
+          ),
+        );
+      }
+      return null;
+    }
+
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      ).timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      if (context.mounted) {
+        ErrorHandler.show(
+          context,
+          const ApiException(
+            message:
+                'No se pudo obtener tu ubicación. Verifica que el GPS esté activo',
+            type: ApiErrorType.timeout,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
   // ── Mapa con pin en ESCOM (ajustes) ───────────────────────────────────────
 
   static Future<void> openEscomMap() async {
