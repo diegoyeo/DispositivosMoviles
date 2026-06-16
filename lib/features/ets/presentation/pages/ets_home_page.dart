@@ -54,8 +54,10 @@ class _EtsHomePageState extends State<EtsHomePage>
   }
 
   void _applyPreferences(PreferencesProvider pref, EtsProvider ets) {
-    final carrera = pref.defaultCarrera;
-    final semestre = pref.defaultSemestre;
+    final rol =
+        Provider.of<AuthProvider>(context, listen: false).currentRole ?? '';
+    final carrera = rol == 'alumno' ? pref.defaultCarrera : null;
+    final semestre = rol == 'alumno' ? pref.defaultSemestre : null;
     setState(() {
       _carreraFiltro = carrera ?? 'Todas';
       _semestreFiltro = semestre ?? 'Todos';
@@ -177,6 +179,8 @@ class _EtsHomePageState extends State<EtsHomePage>
               onLogout: () {
                 etsProvider.limpiarFiltros();
                 auth.logout();
+                Provider.of<PreferencesProvider>(context, listen: false)
+                    .resetToDefaults();
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginPage()),

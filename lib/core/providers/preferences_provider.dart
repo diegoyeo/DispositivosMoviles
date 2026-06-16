@@ -11,12 +11,22 @@ class PreferencesProvider extends ChangeNotifier {
   String? _defaultSemestre;
 
   PreferencesProvider(this._prefs) {
-    _defaultCarrera = _prefs.getString(_keyCarrera);
-    _defaultSemestre = _prefs.getString(_keySemestre);
+    final rol = _prefs.getString('user_rol') ?? '';
+    if (rol == 'alumno') {
+      _defaultCarrera = _prefs.getString(_keyCarrera);
+      _defaultSemestre = _prefs.getString(_keySemestre);
+    }
+    // Invitado o admin → valores neutros sin preferencias
   }
 
   String? get defaultCarrera => _defaultCarrera;
   String? get defaultSemestre => _defaultSemestre;
+
+  void resetToDefaults() {
+    _defaultCarrera = null;
+    _defaultSemestre = null;
+    notifyListeners();
+  }
 
   void setDefaultCarrera(String? carrera) {
     _defaultCarrera = carrera;

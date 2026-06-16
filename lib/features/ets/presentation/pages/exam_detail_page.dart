@@ -269,6 +269,8 @@ class _ExamDetailPageState extends State<ExamDetailPage>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final esInvitado = auth.currentRole == null;
+    final esAlumnoOAdmin =
+        auth.currentRole == 'alumno' || auth.currentRole == 'admin';
     final yaEstaGuardado = etsProv.estaGuardado(widget.exam.materia);
 
     final rows = [
@@ -397,133 +399,169 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _ActionButton(
-                        icon: Icons.directions_rounded,
-                        label: 'Cómo llegar al salón',
-                        onPressed: () async {
-                          final salon = widget.exam.salon;
-                          if (salon.isEmpty ||
-                              salon.toLowerCase().contains('por asignar')) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Salón sin asignar. '
-                                  'Se mostrará la ubicación de ESCOM',
+                      if (esAlumnoOAdmin) ...[
+                        _ActionButton(
+                          icon: Icons.directions_rounded,
+                          label: 'Cómo llegar al salón',
+                          onPressed: () async {
+                            final salon = widget.exam.salon;
+                            if (salon.isEmpty ||
+                                salon.toLowerCase().contains('por asignar')) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Salón sin asignar. '
+                                    'Se mostrará la ubicación de ESCOM',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
+                              );
+                            }
+
+                            // Capturar referencias antes del await
+                            final messenger = ScaffoldMessenger.of(context);
+                            final navigator = Navigator.of(context);
+
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Obteniendo tu ubicación...'),
+                                  ],
+                                ),
+                                duration: const Duration(seconds: 5),
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                             );
-                          }
 
-                          // Capturar referencias antes del await
-                          final messenger = ScaffoldMessenger.of(context);
-                          final navigator = Navigator.of(context);
+                            final position =
+                                await LauncherService.getCurrentLocation(
+                                    context);
 
-                          messenger.showSnackBar(
-                            SnackBar(
-                              content: const Row(
-                                children: [
-                                  SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
+                            messenger.hideCurrentSnackBar();
+                            if (position == null) return;
+
+                            await navigator.push(
+                              PageRouteBuilder<void>(
+                                transitionDuration:
+                                    const Duration(milliseconds: 400),
+                                reverseTransitionDuration:
+                                    const Duration(milliseconds: 300),
+                                pageBuilder: (ctx, animation, _) => MapPage(
+                                  salonNombre: salon,
+                                  userLat: position.latitude,
+                                  userLon: position.longitude,
+                                ),
+                                transitionsBuilder:
+                                    (ctx, animation, _, child) =>
+                                        SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(1.0, 0.0),
+                                    end: Offset.zero,
+                                  ).animate(CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOutCubic,
+                                  )),
+                                  child: FadeTransition(
+                                    opacity: Tween<double>(
+                                      begin: 0.6,
+                                      end: 1.0,
+                                    ).animate(animation),
+                                    child: child,
                                   ),
-                                  SizedBox(width: 12),
-                                  Text('Obteniendo tu ubicación...'),
-                                ],
-                              ),
-                              duration: const Duration(seconds: 5),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          );
-
-                          final position =
-                              await LauncherService.getCurrentLocation(context);
-
-                          messenger.hideCurrentSnackBar();
-                          if (position == null) return;
-
-                          await navigator.push(
-                            PageRouteBuilder<void>(
-                              transitionDuration:
-                                  const Duration(milliseconds: 400),
-                              reverseTransitionDuration:
-                                  const Duration(milliseconds: 300),
-                              pageBuilder: (ctx, animation, _) => MapPage(
-                                salonNombre: salon,
-                                userLat: position.latitude,
-                                userLon: position.longitude,
-                              ),
-                              transitionsBuilder:
-                                  (ctx, animation, _, child) =>
-                                      SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(1.0, 0.0),
-                                  end: Offset.zero,
-                                ).animate(CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeOutCubic,
-                                )),
-                                child: FadeTransition(
-                                  opacity: Tween<double>(
-                                    begin: 0.6,
-                                    end: 1.0,
-                                  ).animate(animation),
-                                  child: child,
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 12,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Mapa de ruta a ESCOM dentro de la app',
-                            style: TextStyle(
-                              fontSize: 11,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 12,
                               color: cs.onSurfaceVariant,
                             ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Mapa de ruta a ESCOM dentro de la app',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _ActionButton(
+                          icon: Icons.mail_outline_rounded,
+                          label: 'Contactar soporte',
+                          onPressed: () async {
+                            try {
+                              await LauncherService.openSupport(
+                                subject:
+                                    'Consulta sobre ETS: ${widget.exam.materia}',
+                                body:
+                                    'Hola, tengo una consulta sobre el ETS de '
+                                    '${widget.exam.materia} programado para '
+                                    '${widget.exam.fecha}.\n\n',
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ErrorHandler.show(context, e);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                      ] else ...[
+                        Container(
+                          margin: const EdgeInsets.only(top: 8, bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _ActionButton(
-                        icon: Icons.mail_outline_rounded,
-                        label: 'Contactar soporte',
-                        onPressed: () async {
-                          try {
-                            await LauncherService.openSupport(
-                              subject:
-                                  'Consulta sobre ETS: ${widget.exam.materia}',
-                              body: 'Hola, tengo una consulta sobre el ETS de '
-                                  '${widget.exam.materia} programado para '
-                                  '${widget.exam.fecha}.\n\n',
-                            );
-                          } catch (e) {
-                            if (!context.mounted) return;
-                            ErrorHandler.show(context, e);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.lock_outline,
+                                size: 16,
+                                color: cs.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Inicia sesión para ver la ubicación '
+                                  'y contactar soporte',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       _buildActionButton(
                         esInvitado,
                         yaEstaGuardado,

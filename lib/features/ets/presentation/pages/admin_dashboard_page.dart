@@ -79,6 +79,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
     );
   }
 
+  Future<void> _recargarTodo() async {
+    await context.read<EtsProvider>().loadAllExams();
+  }
+
   void _confirmToggleVisibility(
     BuildContext context,
     EtsExam exam,
@@ -464,11 +468,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                                                       etsProvider,
                                                       cs),
                                             ),
-                                            _ScaleButton(
+                                                            _ScaleButton(
                                               icon: Icons.edit_rounded,
                                               color: cs.primary,
-                                              onPressed: () {
-                                                Navigator.push(
+                                              onPressed: () async {
+                                                final resultado =
+                                                    await Navigator.push<bool>(
                                                   context,
                                                   MaterialPageRoute(
                                                     builder: (_) =>
@@ -476,6 +481,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                                                             exam: exam),
                                                   ),
                                                 );
+                                                if (resultado == true &&
+                                                    context.mounted) {
+                                                  await _recargarTodo();
+                                                }
                                               },
                                             ),
                                             _ScaleButton(
@@ -505,6 +514,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                                                             await etsProvider
                                                                 .borrarExamenDelCatalogo(
                                                                     exam.materia);
+                                                            await etsProvider
+                                                                .loadAllExams();
                                                             if (!context
                                                                 .mounted) {
                                                               return;
@@ -570,11 +581,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         builder: (_, child) =>
             Transform.scale(scale: _fabPulse.value, child: child),
         child: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.push(
+          onPressed: () async {
+            final resultado = await Navigator.push<bool>(
               context,
               MaterialPageRoute(builder: (_) => const AddExamPage()),
             );
+            if (resultado == true && context.mounted) {
+              await _recargarTodo();
+            }
           },
           backgroundColor: cs.primary,
           foregroundColor: cs.onPrimary,

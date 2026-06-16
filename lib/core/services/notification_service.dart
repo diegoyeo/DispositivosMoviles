@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+// Cambia a false antes de entregar a producción
+const bool kTestNotifications = true;
+
 class NotificationService {
   NotificationService._();
   static final NotificationService _instance = NotificationService._();
@@ -71,27 +74,48 @@ class NotificationService {
         mensajeAnticipacion = 'Mañana tienes';
     }
 
-    final notificationDate = examDate.subtract(Duration(days: diasAntes));
-    final scheduledDate = tz.TZDateTime(
-      tz.local,
-      notificationDate.year,
-      notificationDate.month,
-      notificationDate.day,
-      8,
-      0,
-    );
+    // Modo prueba: si el examen cae dentro del rango del recordatorio
+    // configurado → disparar en 1 minuto para facilitar testing.
+    final diasParaExamen =
+        examDate.difference(DateTime.now()).inDays;
+    final bool modoTest =
+        kTestNotifications && diasParaExamen <= diasAntes && diasParaExamen >= 0;
+
+    tz.TZDateTime scheduledDate;
+
+    if (modoTest) {
+      scheduledDate =
+          tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+      debugPrint(
+        '🔔 MODO TEST: Notificación de "$examName" en 1 minuto '
+        '(examen en $diasParaExamen días, recordatorio: $diasAntes días antes)',
+      );
+    } else {
+      final notifDate = examDate.subtract(Duration(days: diasAntes));
+      scheduledDate = tz.TZDateTime(
+        tz.local,
+        notifDate.year,
+        notifDate.month,
+        notifDate.day,
+        8,
+        0,
+      );
+      debugPrint(
+        '🔔 Notificación de "$examName" programada para $scheduledDate',
+      );
+    }
 
     if (!scheduledDate.isAfter(tz.TZDateTime.now(tz.local))) {
-      debugPrint(
-        'Notificación no programada: la fecha ya pasó ($scheduledDate)',
-      );
+      debugPrint('⚠️ Notificación no programada: fecha ya pasó');
       return;
     }
 
-    const titulo = 'Recordatorio ETS — MOVIDA';
-    final cuerpo = '$mensajeAnticipacion tu ETS de $examName';
-
-    debugPrint('Notificación programada: $cuerpo para $scheduledDate');
+    final titulo = modoTest
+        ? '🧪 TEST — Recordatorio ETS'
+        : 'Recordatorio ETS — MOVIDA';
+    final cuerpo = modoTest
+        ? 'PRUEBA: $mensajeAnticipacion tu ETS de $examName'
+        : '$mensajeAnticipacion tu ETS de $examName';
 
     try {
       await _plugin.zonedSchedule(

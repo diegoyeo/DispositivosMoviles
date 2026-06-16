@@ -111,7 +111,7 @@ class _EditExamPageState extends State<EditExamPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Examen actualizado correctamente')),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

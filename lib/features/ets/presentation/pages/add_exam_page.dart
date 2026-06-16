@@ -106,7 +106,7 @@ class _AddExamPageState extends State<AddExamPage>
           const SnackBar(content: Text('Examen registrado correctamente')),
         );
 
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
