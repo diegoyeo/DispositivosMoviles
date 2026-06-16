@@ -397,29 +397,51 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _ActionButton(
-                        icon: Icons.location_on_outlined,
-                        label: 'Ver ubicación del salón',
+                        icon: Icons.directions_rounded,
+                        label: 'Cómo llegar al salón',
                         onPressed: () async {
                           final salon = widget.exam.salon;
                           if (salon.isEmpty ||
                               salon.toLowerCase().contains('por asignar')) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('El salón aún no ha sido asignado'),
+                              SnackBar(
+                                content: const Text(
+                                  'El salón aún no ha sido asignado. '
+                                  'Se mostrará la ubicación de ESCOM',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             );
-                            return;
                           }
-                          try {
-                            await LauncherService.openSalonMap(salon);
-                          } catch (e) {
-                            if (!mounted) return;
-                            ErrorHandler.show(context, e);
-                          }
+                          await LauncherService.openSalonRoute(
+                            context,
+                            salon,
+                          );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 12,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Se abrirá OpenStreetMap con la ruta a ESCOM',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       _ActionButton(
                         icon: Icons.mail_outline_rounded,
                         label: 'Contactar soporte',
