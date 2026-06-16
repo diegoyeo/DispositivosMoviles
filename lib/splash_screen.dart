@@ -75,25 +75,43 @@ class _SplashScreenState extends State<SplashScreen>
     await authProvider.checkAuthOnStartup();
     if (!mounted) return;
 
-    if (authProvider.currentRole != null) {
-      // Alumno con huella vinculada: forzar re-autenticación biométrica
-      if (authProvider.currentRole == 'alumno') {
-        final bioLinked = await BiometricService.isBiometricLinked();
-        if (bioLinked && mounted) {
-          await Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 500),
-              pageBuilder: (_, animation, _) => FadeTransition(
-                opacity: CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeInOut,
-                ),
-                child: const LoginPage(autoTriggerBiometric: true),
-              ),
+    // PASO 2: Admin nunca mantiene sesión persistente entre aperturas.
+    // Red de seguridad por si el PASO 3 de main() no alcanzó a limpiar.
+    if (authProvider.currentRole == 'admin') {
+      await authProvider.logoutSilent();
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 500),
+          pageBuilder: (_, animation, _) => FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOut,
             ),
-          );
-          return;
-        }
+            child: const LoginPage(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (authProvider.currentRole == 'alumno') {
+      // Alumno con huella vinculada: forzar re-autenticación biométrica
+      final bioLinked = await BiometricService.isBiometricLinked();
+      if (bioLinked && mounted) {
+        await Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 500),
+            pageBuilder: (_, animation, _) => FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOut,
+              ),
+              child: const LoginPage(autoTriggerBiometric: true),
+            ),
+          ),
+        );
+        return;
       }
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
