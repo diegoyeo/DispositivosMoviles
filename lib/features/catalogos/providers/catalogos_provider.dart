@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/api_config.dart';
+import '../../../core/di/service_locator.dart';
 import '../../../core/services/api_service.dart';
 import '../models/carrera_model.dart';
 import '../models/salon_model.dart';
 
 class CatalogosProvider extends ChangeNotifier {
-  final _api = ApiService();
+  final _api = sl<ApiService>();
 
   List<CarreraModel> _carreras = [];
   List<SalonModel> _salones = [];

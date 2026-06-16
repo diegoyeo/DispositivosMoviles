@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/di/service_locator.dart';
 import 'core/providers/preferences_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/services/notification_service.dart';
 import 'features/catalogos/providers/catalogos_provider.dart';
-import 'features/ets/data/datasources/ets_local_datasource.dart';
 import 'features/ets/data/repositories/ets_repository_impl.dart';
 import 'core/config/router.dart';
 import 'features/ets/presentation/pages/login_page.dart';
@@ -19,13 +19,12 @@ import 'splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await setupServiceLocator();
   await NotificationService().initialize();
 
   final prefs = await SharedPreferences.getInstance();
 
-  // PASO 3: Limpiar sesión admin si quedó guardada.
-  // Garantía principal: aunque Android mate el proceso sin disparar ningún
-  // lifecycle event, main() siempre se ejecuta al abrir la app de nuevo.
+  // Limpiar sesión admin si quedó guardada al inicio.
   if (prefs.getString('user_rol') == 'admin') {
     await prefs.remove('auth_token');
     await prefs.remove('user_correo');
@@ -36,8 +35,7 @@ void main() async {
   }
 
   final onboardingRepo = OnboardingRepositoryImpl();
-  final localDataSource = EtsLocalDataSource();
-  final repository = EtsRepositoryImpl(localDataSource);
+  final repository = sl<EtsRepositoryImpl>();
 
   runApp(
     MultiProvider(

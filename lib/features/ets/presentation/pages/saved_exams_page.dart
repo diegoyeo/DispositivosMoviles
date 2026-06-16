@@ -11,6 +11,8 @@ import '../widgets/app_drawers.dart';
 import 'exam_detail_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
+import '../../../../core/services/ics_service.dart';
+import '../../../../core/utils/error_handler.dart';
 
 class SavedExamsPage extends StatefulWidget {
   const SavedExamsPage({super.key});
@@ -215,6 +217,32 @@ class _SavedExamsPageState extends State<SavedExamsPage>
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_rounded),
+            tooltip: 'Exportar a iCalendar (.ics)',
+            onPressed: () async {
+              final examenes = etsProvider.misExamenesGuardados;
+              if (examenes.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      'No tienes exámenes guardados para exportar',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+                return;
+              }
+              try {
+                await IcsService.exportCalendar(examenes);
+              } catch (e) {
+                if (context.mounted) ErrorHandler.show(context, e);
+              }
+            },
+          ),
           AnimatedBuilder(
             animation: _pulseCtrl,
             builder: (_, child) =>

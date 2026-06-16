@@ -4,8 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-// Cambia a false antes de entregar a producción
-const bool kTestNotifications = true;
+const bool kTestNotifications = false;
 
 class NotificationService {
   NotificationService._();

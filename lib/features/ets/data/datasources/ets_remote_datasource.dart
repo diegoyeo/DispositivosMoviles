@@ -1,10 +1,11 @@
 import '../../../../core/config/api_config.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../core/services/api_service.dart';
 import '../../domain/entities/ets_exam.dart';
 import '../models/ets_model.dart';
 
 class EtsRemoteDataSource {
-  final _api = ApiService();
+  final _api = sl<ApiService>();
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
