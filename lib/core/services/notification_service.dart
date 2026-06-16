@@ -15,6 +15,15 @@ class NotificationService {
   static const _channelName = 'Recordatorios ETS';
   static const _kNotifKey = 'notifications_enabled';
 
+  static const _details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+  );
+
   Future<void> initialize() async {
     tz.initializeTimeZones();
 
@@ -24,7 +33,6 @@ class NotificationService {
       ),
     );
 
-    // Solicitar permiso de alarmas exactas en Android 12+
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await android?.requestExactAlarmsPermission();
@@ -42,50 +50,65 @@ class NotificationService {
     required String examName,
     required DateTime examDate,
   }) async {
-    // Verificar que las notificaciones estén habilitadas por el usuario
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_kNotifKey) ?? false;
     if (!enabled) return;
 
-    // ── MODO PRUEBA: dispara 30 seg después de guardar ────────────────
-    // TODO: revertir a modo producción antes de entregar
-    final tzDate = tz.TZDateTime.now(tz.UTC).add(const Duration(seconds: 30));
-    // ── MODO PRODUCCIÓN (descomentar y borrar las 2 líneas de arriba): ─
-    // final localNotif = DateTime(
-    //   examDate.year, examDate.month, examDate.day - 1, 8, 0,
-    // );
-    // if (!localNotif.isAfter(DateTime.now())) return;
-    // final tzDate = tz.TZDateTime.from(localNotif.toUtc(), tz.UTC);
-    // ─────────────────────────────────────────────────────────────────
+    final anticipacion =
+        prefs.getString('notification_anticipation') ?? '1_dia';
 
-    debugPrint('Notificación programada para: $tzDate');
+    int diasAntes;
+    String mensajeAnticipacion;
+    switch (anticipacion) {
+      case '3_dias':
+        diasAntes = 3;
+        mensajeAnticipacion = 'En 3 días tienes';
+      case '1_semana':
+        diasAntes = 7;
+        mensajeAnticipacion = 'En 1 semana tienes';
+      default:
+        diasAntes = 1;
+        mensajeAnticipacion = 'Mañana tienes';
+    }
 
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        importance: Importance.high,
-        priority: Priority.high,
-      ),
+    final notificationDate = examDate.subtract(Duration(days: diasAntes));
+    final scheduledDate = tz.TZDateTime(
+      tz.local,
+      notificationDate.year,
+      notificationDate.month,
+      notificationDate.day,
+      8,
+      0,
     );
+
+    if (!scheduledDate.isAfter(tz.TZDateTime.now(tz.local))) {
+      debugPrint(
+        'Notificación no programada: la fecha ya pasó ($scheduledDate)',
+      );
+      return;
+    }
+
+    const titulo = 'Recordatorio ETS — MOVIDA';
+    final cuerpo = '$mensajeAnticipacion tu ETS de $examName';
+
+    debugPrint('Notificación programada: $cuerpo para $scheduledDate');
 
     try {
       await _plugin.zonedSchedule(
         id: id,
-        title: 'Recordatorio ETS',
-        body: 'Mañana tienes tu ETS de $examName',
-        scheduledDate: tzDate,
-        notificationDetails: details,
+        title: titulo,
+        body: cuerpo,
+        scheduledDate: scheduledDate,
+        notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     } catch (_) {
-      // Fallback a alarma inexacta si no hay permiso de alarma exacta
       await _plugin.zonedSchedule(
         id: id,
-        title: 'Recordatorio ETS',
-        body: 'Mañana tienes tu ETS de $examName',
-        scheduledDate: tzDate,
-        notificationDetails: details,
+        title: titulo,
+        body: cuerpo,
+        scheduledDate: scheduledDate,
+        notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     }
@@ -100,14 +123,7 @@ class NotificationService {
       id: id,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
+      notificationDetails: _details,
     );
   }
 

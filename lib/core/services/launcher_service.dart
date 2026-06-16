@@ -171,10 +171,13 @@ class LauncherService {
     String subject = 'Soporte MOVIDA ETS ESCOM',
     String body = '',
   }) async {
-    final url = Uri(
-      scheme: 'mailto',
-      path: 'cosmesantamariaosvaldo@gmail.com',
-      queryParameters: {'subject': subject, 'body': body},
+    // Usar encodeComponent para que los espacios sean %20 y no +
+    final encodedSubject = Uri.encodeComponent(subject);
+    final encodedBody = Uri.encodeComponent(body);
+    final url = Uri.parse(
+      'mailto:cosmesantamariaosvaldo@gmail.com'
+      '?subject=$encodedSubject'
+      '&body=$encodedBody',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url);

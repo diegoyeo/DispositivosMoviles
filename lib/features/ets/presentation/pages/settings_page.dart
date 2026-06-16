@@ -9,6 +9,7 @@ import '../../../../../core/services/launcher_service.dart';
 import '../../../../../core/services/notification_service.dart';
 import '../../../../../core/utils/error_handler.dart';
 import '../providers/auth_provider.dart';
+import '../providers/ets_provider.dart';
 
 // Estado de los botones animados dentro de los diálogos
 enum _SaveState { idle, saving, success }
@@ -27,7 +28,7 @@ class _SettingsPageState extends State<SettingsPage>
   static const _kNotifKey = 'notifications_enabled';
 
   bool _recordatorios = false;
-  String _anticipacion = '1 día antes';
+  String _anticipacion = '1_dia';
 
   bool _alertasNuevos = true;
   bool _recordatoriosAdmin = true;
@@ -47,6 +48,8 @@ class _SettingsPageState extends State<SettingsPage>
       if (mounted) {
         setState(() {
           _recordatorios = prefs.getBool(_kNotifKey) ?? false;
+          _anticipacion =
+              prefs.getString('notification_anticipation') ?? '1_dia';
         });
       }
     });
@@ -283,6 +286,54 @@ class _SettingsPageState extends State<SettingsPage>
     }
   }
 
+  Future<void> _onAnticipacionChanged(String val) async {
+    setState(() => _anticipacion = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('notification_anticipation', val);
+    if (!_recordatorios) return;
+    await NotificationService().cancelAllNotifications();
+    if (!mounted) return;
+    final etsProv = Provider.of<EtsProvider>(context, listen: false);
+    for (final exam in etsProv.misExamenesGuardados) {
+      await NotificationService().scheduleExamNotification(
+        id: exam.materia.hashCode,
+        examName: exam.materia,
+        examDate: _parseFecha(exam.fecha),
+      );
+    }
+    if (!mounted) return;
+    _showFloatingSnackBar(
+      'Recordatorios actualizados con '
+      '${_getAnticipacionTexto(val)} de anticipación',
+    );
+  }
+
+  static DateTime _parseFecha(String fechaStr) {
+    const meses = <String, int>{
+      'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+      'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+      'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
+    };
+    try {
+      final p = fechaStr.toLowerCase().split('-');
+      return DateTime(
+        p.length == 3 ? int.parse(p[2]) : 2026,
+        meses[p[1]] ?? 6,
+        int.parse(p[0]),
+      );
+    } catch (_) {
+      return DateTime(2026, 6, 1);
+    }
+  }
+
+  static String _getAnticipacionTexto(String val) {
+    switch (val) {
+      case '3_dias': return '3 días';
+      case '1_semana': return '1 semana';
+      default: return '1 día';
+    }
+  }
+
   // ── Versión Alumno ────────────────────────────────────────────────────────
 
   Widget _buildAlumno(BuildContext context) {
@@ -441,15 +492,15 @@ class _SettingsPageState extends State<SettingsPage>
                   child: SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(
-                          value: '1 día antes', label: Text('1 día')),
+                          value: '1_dia', label: Text('1 día')),
                       ButtonSegment(
-                          value: '3 días antes', label: Text('3 días')),
+                          value: '3_dias', label: Text('3 días')),
                       ButtonSegment(
-                          value: '1 semana antes', label: Text('1 sem')),
+                          value: '1_semana', label: Text('1 sem')),
                     ],
                     selected: {_anticipacion},
                     onSelectionChanged: (v) =>
-                        setState(() => _anticipacion = v.first),
+                        _onAnticipacionChanged(v.first),
                   ),
                 ),
                 isThreeLine: true,
