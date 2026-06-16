@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/providers/preferences_provider.dart';
 import '../../../../../core/providers/theme_provider.dart';
 import '../../../../../core/services/biometric_service.dart';
+import '../../../../../core/services/launcher_service.dart';
 import '../../../../../core/services/notification_service.dart';
+import '../../../../../core/utils/error_handler.dart';
 import '../providers/auth_provider.dart';
 
 // Estado de los botones animados dentro de los diálogos
@@ -656,6 +658,42 @@ class _SettingsPageState extends State<SettingsPage>
             // ── Acerca de ────────────────────────────────────────────────
             _animated(idx++, _sectionHeader('Acerca de', cs, tt)),
             _animated(idx++, const _AcercaDeCard()),
+            _divider(cs),
+            _animated(
+              idx++,
+              ListTile(
+                leading: Icon(Icons.support_agent_outlined, color: cs.primary),
+                title: const Text('Contactar soporte'),
+                subtitle: const Text('cosmesantamariaosvaldo@gmail.com'),
+                trailing: const Icon(Icons.open_in_new, size: 16),
+                onTap: () async {
+                  try {
+                    await LauncherService.openSupport();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ErrorHandler.show(context, e);
+                  }
+                },
+              ),
+            ),
+            _divider(cs),
+            _animated(
+              idx++,
+              ListTile(
+                leading: Icon(Icons.school_outlined, color: cs.primary),
+                title: const Text('Ubicación de ESCOM'),
+                subtitle: const Text('Ver en OpenStreetMap'),
+                trailing: const Icon(Icons.open_in_new, size: 16),
+                onTap: () async {
+                  try {
+                    await LauncherService.openEscomMap();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ErrorHandler.show(context, e);
+                  }
+                },
+              ),
+            ),
             _animated(
               idx++,
               Padding(
@@ -857,8 +895,43 @@ class _SettingsPageState extends State<SettingsPage>
 
             // ── Acerca de ────────────────────────────────────────────────
             _animated(idx++, _sectionHeader('Acerca de', cs, tt)),
+            _animated(idx++, const _AcercaDeCard(isAdmin: true)),
+            _divider(cs),
             _animated(
-                idx++, const _AcercaDeCard(isAdmin: true)),
+              idx++,
+              ListTile(
+                leading: Icon(Icons.support_agent_outlined, color: cs.primary),
+                title: const Text('Contactar soporte'),
+                subtitle: const Text('cosmesantamariaosvaldo@gmail.com'),
+                trailing: const Icon(Icons.open_in_new, size: 16),
+                onTap: () async {
+                  try {
+                    await LauncherService.openSupport();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ErrorHandler.show(context, e);
+                  }
+                },
+              ),
+            ),
+            _divider(cs),
+            _animated(
+              idx++,
+              ListTile(
+                leading: Icon(Icons.school_outlined, color: cs.primary),
+                title: const Text('Ubicación de ESCOM'),
+                subtitle: const Text('Ver en OpenStreetMap'),
+                trailing: const Icon(Icons.open_in_new, size: 16),
+                onTap: () async {
+                  try {
+                    await LauncherService.openEscomMap();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ErrorHandler.show(context, e);
+                  }
+                },
+              ),
+            ),
             _animated(
               idx++,
               Padding(

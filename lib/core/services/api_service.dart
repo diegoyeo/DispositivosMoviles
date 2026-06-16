@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
+import 'api_exception.dart';
 
 class ApiService {
   ApiService._();
@@ -29,19 +30,51 @@ class ApiService {
       case 200:
       case 201:
         return body;
+      case 400:
+        throw const ApiException(
+          message: 'Datos incorrectos. Verifica la información ingresada',
+          statusCode: 400,
+          type: ApiErrorType.validation,
+        );
       case 401:
-        throw Exception('Sesión expirada');
+        throw const ApiException(
+          message: 'Sesión expirada. Por favor inicia sesión de nuevo',
+          statusCode: 401,
+          type: ApiErrorType.unauthorized,
+        );
       case 403:
-        throw Exception('Sin permisos');
+        throw const ApiException(
+          message: 'No tienes permisos para realizar esta acción',
+          statusCode: 403,
+          type: ApiErrorType.forbidden,
+        );
       case 404:
-        throw Exception('No encontrado');
+        throw const ApiException(
+          message: 'El recurso solicitado no fue encontrado',
+          statusCode: 404,
+          type: ApiErrorType.notFound,
+        );
       case 409:
-        throw Exception(body['message'] ?? 'Conflicto');
+        throw ApiException(
+          message: body['message'] as String? ??
+              'Ya existe un registro con esos datos',
+          statusCode: 409,
+          type: ApiErrorType.conflict,
+        );
       case 500:
-        throw Exception('Error del servidor');
+      case 502:
+      case 503:
+        throw ApiException(
+          message: 'Error en el servidor. Intenta de nuevo más tarde',
+          statusCode: response.statusCode,
+          type: ApiErrorType.serverError,
+        );
       default:
-        throw Exception(
-          body['message'] ?? 'Error desconocido (${response.statusCode})',
+        throw ApiException(
+          message: body['message'] as String? ??
+              'Error inesperado (${response.statusCode})',
+          statusCode: response.statusCode,
+          type: ApiErrorType.unknown,
         );
     }
   }
@@ -57,10 +90,22 @@ class ApiService {
           .timeout(ApiConfig.timeout);
       return _handleResponse(response);
     } on TimeoutException {
-      throw Exception('Tiempo de espera agotado');
+      throw const ApiException(
+        message: 'Tiempo de espera agotado. Verifica tu conexión a internet',
+        type: ApiErrorType.timeout,
+      );
     } on SocketException {
-      throw Exception(
-        'No se puede conectar al servidor. Verifica tu conexión',
+      throw const ApiException(
+        message:
+            'Sin conexión al servidor. Verifica que estés en la misma red WiFi',
+        type: ApiErrorType.noConnection,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Error inesperado: $e',
+        type: ApiErrorType.unknown,
       );
     }
   }
@@ -81,10 +126,22 @@ class ApiService {
           .timeout(ApiConfig.timeout);
       return _handleResponse(response);
     } on TimeoutException {
-      throw Exception('Tiempo de espera agotado');
+      throw const ApiException(
+        message: 'Tiempo de espera agotado. Verifica tu conexión a internet',
+        type: ApiErrorType.timeout,
+      );
     } on SocketException {
-      throw Exception(
-        'No se puede conectar al servidor. Verifica tu conexión',
+      throw const ApiException(
+        message:
+            'Sin conexión al servidor. Verifica que estés en la misma red WiFi',
+        type: ApiErrorType.noConnection,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Error inesperado: $e',
+        type: ApiErrorType.unknown,
       );
     }
   }
@@ -105,10 +162,22 @@ class ApiService {
           .timeout(ApiConfig.timeout);
       return _handleResponse(response);
     } on TimeoutException {
-      throw Exception('Tiempo de espera agotado');
+      throw const ApiException(
+        message: 'Tiempo de espera agotado. Verifica tu conexión a internet',
+        type: ApiErrorType.timeout,
+      );
     } on SocketException {
-      throw Exception(
-        'No se puede conectar al servidor. Verifica tu conexión',
+      throw const ApiException(
+        message:
+            'Sin conexión al servidor. Verifica que estés en la misma red WiFi',
+        type: ApiErrorType.noConnection,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Error inesperado: $e',
+        type: ApiErrorType.unknown,
       );
     }
   }
@@ -129,10 +198,22 @@ class ApiService {
           .timeout(ApiConfig.timeout);
       return _handleResponse(response);
     } on TimeoutException {
-      throw Exception('Tiempo de espera agotado');
+      throw const ApiException(
+        message: 'Tiempo de espera agotado. Verifica tu conexión a internet',
+        type: ApiErrorType.timeout,
+      );
     } on SocketException {
-      throw Exception(
-        'No se puede conectar al servidor. Verifica tu conexión',
+      throw const ApiException(
+        message:
+            'Sin conexión al servidor. Verifica que estés en la misma red WiFi',
+        type: ApiErrorType.noConnection,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Error inesperado: $e',
+        type: ApiErrorType.unknown,
       );
     }
   }
@@ -151,10 +232,22 @@ class ApiService {
           .timeout(ApiConfig.timeout);
       return _handleResponse(response);
     } on TimeoutException {
-      throw Exception('Tiempo de espera agotado');
+      throw const ApiException(
+        message: 'Tiempo de espera agotado. Verifica tu conexión a internet',
+        type: ApiErrorType.timeout,
+      );
     } on SocketException {
-      throw Exception(
-        'No se puede conectar al servidor. Verifica tu conexión',
+      throw const ApiException(
+        message:
+            'Sin conexión al servidor. Verifica que estés en la misma red WiFi',
+        type: ApiErrorType.noConnection,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Error inesperado: $e',
+        type: ApiErrorType.unknown,
       );
     }
   }

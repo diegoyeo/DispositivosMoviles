@@ -8,15 +8,13 @@ import 'core/services/notification_service.dart';
 import 'features/catalogos/providers/catalogos_provider.dart';
 import 'features/ets/data/datasources/ets_local_datasource.dart';
 import 'features/ets/data/repositories/ets_repository_impl.dart';
+import 'core/config/router.dart';
 import 'features/ets/presentation/pages/login_page.dart';
 import 'features/ets/presentation/providers/auth_provider.dart';
 import 'features/ets/presentation/providers/ets_provider.dart';
 import 'features/onboarding/data/repositories/onboarding_repository_impl.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'splash_screen.dart';
-
-// Clave global para navegar desde fuera del árbol de widgets (lifecycle observer)
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

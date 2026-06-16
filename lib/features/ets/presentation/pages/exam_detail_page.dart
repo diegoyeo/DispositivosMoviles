@@ -3,7 +3,9 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/services/launcher_service.dart';
 import '../../../../../core/services/notification_service.dart';
+import '../../../../../core/utils/error_handler.dart';
 import '../../domain/entities/ets_exam.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ets_provider.dart';
@@ -386,17 +388,65 @@ class _ExamDetailPageState extends State<ExamDetailPage>
 
               const SizedBox(height: 28),
 
-              // ── Botón de acción con animación de entrada ───────────────
+              // ── Botones de acción ──────────────────────────────────────
               FadeTransition(
                 opacity: _animButton,
                 child: ScaleTransition(
                   scale: _animButton,
-                  child: _buildActionButton(
-                    esInvitado,
-                    yaEstaGuardado,
-                    etsProv,
-                    auth,
-                    cs,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ActionButton(
+                        icon: Icons.location_on_outlined,
+                        label: 'Ver ubicación del salón',
+                        onPressed: () async {
+                          final salon = widget.exam.salon;
+                          if (salon.isEmpty ||
+                              salon.toLowerCase().contains('por asignar')) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('El salón aún no ha sido asignado'),
+                              ),
+                            );
+                            return;
+                          }
+                          try {
+                            await LauncherService.openSalonMap(salon);
+                          } catch (e) {
+                            if (!mounted) return;
+                            ErrorHandler.show(context, e);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _ActionButton(
+                        icon: Icons.mail_outline_rounded,
+                        label: 'Contactar soporte',
+                        onPressed: () async {
+                          try {
+                            await LauncherService.openSupport(
+                              subject:
+                                  'Consulta sobre ETS: ${widget.exam.materia}',
+                              body: 'Hola, tengo una consulta sobre el ETS de '
+                                  '${widget.exam.materia} programado para '
+                                  '${widget.exam.fecha}.\n\n',
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            ErrorHandler.show(context, e);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionButton(
+                        esInvitado,
+                        yaEstaGuardado,
+                        etsProv,
+                        auth,
+                        cs,
+                      ),
+                    ],
                   ),
                 ),
               ),
