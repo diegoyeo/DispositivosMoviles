@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../../../catalogos/pages/carreras_page.dart';
 import '../../../catalogos/pages/salones_page.dart';
+import '../../../map/pages/campus_map_page.dart';
 
 // ─── AdminDrawer ──────────────────────────────────────────────────────────────
 // Requiere ser usado dentro de un Theme morado para respetar la paleta admin.
@@ -326,11 +327,34 @@ class _AlumnoDrawerState extends State<AlumnoDrawer>
               widget.onNavigateCalendar),
           _tile(4, Icons.settings_rounded, 'Ajustes',
               widget.onNavigateSettings),
+          _tile(5, Icons.map_rounded, 'Mapa del Campus', () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              PageRouteBuilder<void>(
+                transitionDuration:
+                    const Duration(milliseconds: 350),
+                pageBuilder: (ctx, animation, _) =>
+                    const CampusMapPage(),
+                transitionsBuilder: (ctx, animation, _, child) =>
+                    SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              ),
+            );
+          }),
 
           const Divider(),
 
           _tile(
-            5,
+            6,
             Icons.logout_rounded,
             'Cerrar Sesión',
             widget.onLogout,
@@ -523,6 +547,29 @@ class _GuestDrawerState extends State<GuestDrawer>
               highlighted: true),
           _tile(4, Icons.person_add_rounded, 'Registrarse como Alumno',
               widget.onNavigateRegister),
+          _tile(5, Icons.map_rounded, 'Mapa del Campus', () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              PageRouteBuilder<void>(
+                transitionDuration:
+                    const Duration(milliseconds: 350),
+                pageBuilder: (ctx, animation, _) =>
+                    const CampusMapPage(),
+                transitionsBuilder: (ctx, animation, _, child) =>
+                    SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
